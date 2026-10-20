@@ -186,5 +186,30 @@ h1,h2,h3,p { margin-top: 0; } h1 { margin-bottom: 6px; font-size: 28px; line-hei
 }
 
 .intelligence-module .topbar .top-actions { margin-left: auto; }
+.intelligence-module .membership-action-grids { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; align-items:start; }
+.intelligence-module .membership-action-grids .card-head { padding:18px 20px; }
+.intelligence-module .membership-action-grids table { width:100%; min-width:0; table-layout:fixed; }
+.intelligence-module .membership-action-grids tbody th { text-align:left; font-size:11px; color:var(--ink); font-weight:500; padding:11px 13px; white-space:normal; overflow-wrap:anywhere; text-transform:none; letter-spacing:normal; background:transparent; border-bottom:1px solid var(--line); }
+.intelligence-module .membership-action-grids .action-count { text-align:right; padding-right:20px; font-variant-numeric:tabular-nums; }
+.intelligence-module .membership-action-grids tfoot { background:var(--teal-soft); font-weight:700; }
+.intelligence-module .membership-action-grids tfoot th { text-align:left; padding:11px 13px; }
+@media (max-width:800px) { .intelligence-module .membership-action-grids { grid-template-columns:1fr; } }
 .measurement-note,.measurement-error{padding:0 22px;font-size:12px;color:var(--muted)}.measurement-error{color:var(--red)}
 .work-plan-overview{margin-bottom:20px}.plan-summary{margin:0}.plan-summary>div{padding:12px 0;border-top:1px solid var(--line)}.plan-summary>div:first-child{padding-top:0;border-top:0}.plan-summary dt{font-size:10px;font-weight:700;color:var(--muted);margin-bottom:6px}.plan-summary dd{margin:0;font-size:12px;line-height:1.6;color:var(--ink);overflow-wrap:anywhere}.work-plan-overview .compact-details{margin-bottom:0}.outcome-context{grid-column:1/-1;margin:0;padding:12px;border:1px solid var(--line);border-radius:7px;background:var(--teal-soft);color:var(--muted);font-size:11px;line-height:1.5}
+
+.intelligence-module .membership-action-grids > section { min-width:0; }
+.intelligence-module .membership-action-grids .action-count { width:105px; padding-right:13px; }
+.intelligence-module .action-count-link { display:inline-block; border:0; background:transparent; padding:4px 8px; color:var(--teal); font:inherit; font-weight:700; text-decoration:underline; text-underline-offset:3px; cursor:pointer; border-radius:4px; }
+.intelligence-module .action-count-link:hover { background:var(--teal-soft); }
+.intelligence-module .membership-action-grids .action-priority-matrix .action-count { width:16%; padding-left:2px; padding-right:6px; white-space:normal; }
+.intelligence-module .action-priority-matrix .action-count-link { padding-inline:5px; }
+
+.task-dialog { position:fixed;inset:0;margin:auto;width:min(700px,calc(100% - 40px));max-height:calc(100dvh - 40px);padding:0;border:0;color:var(--ink); }
+.task-dialog::backdrop { background:rgba(13,30,27,.42);backdrop-filter:blur(2px); }
+.task-description { margin:7px 0 0;color:var(--muted);font-size:12px; }
+.task-full-width { grid-column:1 / -1;min-width:0; }
+.task-field-hint { color:var(--muted);font-size:11px;font-weight:400; }
+.task-dialog textarea { width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:7px;padding:10px;resize:vertical; }
+.task-dialog input:focus-visible,.task-dialog select:focus-visible,.task-dialog textarea:focus-visible { outline:2px solid var(--teal-dark);outline-offset:2px; }
+.task-date-note { margin:0;color:#865b12;font-size:12px; }
+.task-success { padding:12px 16px;border:1px solid var(--line);border-radius:8px;background:var(--teal-soft);color:var(--teal-dark);font-size:13px; }

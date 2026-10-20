@@ -1,4 +1,6 @@
+import { TaskForm } from "./TaskForm";
 import { RiskForm, WorkPlanRisks, riskType } from "./WorkPlanRisks";
+import { seedActionCenter, mergeActionCenterSeed } from "./seedActions";
 import { WorkPlanOverview } from "./WorkPlanOverview";
 import { MeasurementSetup, OutcomeMeasurements, useMeasurements, type Measurement } from "./measurements";
 import { PaginatedTable } from "../../components/PaginatedResults";
@@ -221,11 +223,13 @@ const initialWorkPlans: WorkPlan[] = [
     tasks: [{ id: "T-8", name: "Validate utilization and exposure", owner: "Evan Brooks", department: "Finance", due: "2026-04-20", status: "In Progress" }, { id: "T-9", name: "Clinical risk review", owner: "Dr. Lena Park", department: "Clinical Leadership", due: "2026-05-05", status: "Not Started", dependency: "T-8" }], kpis: [{ id: "K-4", name: "Required specialty coverage", baseline: 64, target: 85, actual: 68, unit: "%", period: "Q1 2026", owner: "Jordan Lee", status: "At Risk" }], risks: [{ id: "R-3", issue: "Finance assumptions pending", impact: "Decision package delayed", severity: "Medium", owner: "Evan Brooks", due: "2026-04-30", status: "Mitigating" }], activity: [{ date: "2026-04-13", text: "Finance review updated", by: "Evan Brooks" }] },
 ];
 
+const actionCenterSeed = seedActionCenter(initialActions, initialWorkPlans, makeProviders());
+
 function Button({ children, onClick, variant = "primary", type = "button", disabled = false }: { children: React.ReactNode; onClick?: () => void; variant?: "primary" | "secondary" | "ghost" | "danger"; type?: "button" | "submit"; disabled?: boolean }) {
   return <button type={type} className={`btn btn-${variant}`} onClick={onClick} disabled={disabled}>{children}</button>;
 }
-function Select({ value, onChange, children, label }: { value: string; onChange: (value: string) => void; children: React.ReactNode; label?: string }) {
-  return <label className="control">{label && <span>{label}</span>}<select value={value} onChange={(e) => onChange(e.target.value)}>{children}</select></label>;
+function Select({ value, onChange, children, label, ariaLabel }: { value: string; onChange: (value: string) => void; children: React.ReactNode; label?: string; ariaLabel?: string }) {
+  return <label className="control">{label && <span>{label}</span>}<select aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)}>{children}</select></label>;
 }
 function TextInput({ value, onChange, placeholder, label, required = false }: { value: string; onChange: (value: string) => void; placeholder?: string; label?: string; required?: boolean }) {
   return <label className="control">{label && <span>{label}{required && " *"}</span>}<input value={value} required={required} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} /></label>;
@@ -276,11 +280,11 @@ export default function App({ page, setPage, navigation = {}, analyticsView = "p
   const [actions, setActions] = useState<Action[]>(() => {
     try {
       const stored = JSON.parse(localStorage.getItem("ipa-actions") || "");
-      return stored ? stored.map((action: Action) => ({ ...(initialActions.find((seed) => seed.id === action.id) || {}), ...action })) : initialActions;
-    } catch { return initialActions; }
+      return Array.isArray(stored) ? mergeActionCenterSeed<Action>(stored, actionCenterSeed.actions) : actionCenterSeed.actions;
+    } catch { return actionCenterSeed.actions; }
   });
   const [workPlans, setWorkPlans] = useState<WorkPlan[]>(() => {
-    try { const stored = JSON.parse(localStorage.getItem("ipa-work-plans") || "null"); return Array.isArray(stored) ? stored.map(({ milestones: _removed, ...plan }: WorkPlan & { milestones?: unknown }) => plan) : initialWorkPlans; } catch { return initialWorkPlans; }
+    try { const stored = JSON.parse(localStorage.getItem("ipa-work-plans") || "null"); return Array.isArray(stored) ? mergeActionCenterSeed<WorkPlan>(stored.map(({ milestones: _removed, ...plan }: WorkPlan & { milestones?: unknown }) => plan), actionCenterSeed.workPlans) : actionCenterSeed.workPlans; } catch { return actionCenterSeed.workPlans; }
   });
   const [complianceTarget, setComplianceTarget] = useState(75);
   const [ratioTarget, setRatioTarget] = useState(250);
@@ -374,7 +378,7 @@ export default function App({ page, setPage, navigation = {}, analyticsView = "p
           <div className="top-actions"><button className="icon-btn" title="Help" onClick={() => window.alert("This prototype uses fictional healthcare data. Select a module from the sidebar to explore its workflow.")}>?</button><div className="profile"><span>MO</span><div><b>Maya Ortiz</b><small>Network Administrator</small></div></div></div>
         </header>
         <main>
-          {page === "dashboard" && <Dashboard providers={providers} period={reportingPeriod} actions={actions} complianceTarget={complianceTarget} ratioTarget={ratioTarget} go={go} openProviders={openProviders} openCompliance={openCompliance} openAdequacy={openAdequacy} openReferrals={openReferrals} />}
+          {page === "dashboard" && <Dashboard actions={actions} onOpenActions={(filter) => setPage("actions", { filter })} />}
           {page === "analytics" && <Analytics view={analyticsView} providers={providers} period={reportingPeriod} complianceTarget={complianceTarget} />}
           {page === "providers" && <Providers providers={providers} period={reportingPeriod} preset={providerPreset} setProviders={setProviders} setToast={setToast} />}
           {page === "compliance" && <Compliance providers={providers} period={reportingPeriod} preset={compliancePreset} target={complianceTarget} setTarget={setComplianceTarget} addAction={addAction} />}
@@ -382,7 +386,7 @@ export default function App({ page, setPage, navigation = {}, analyticsView = "p
           {page === "dofr" && <Dofr addAction={addAction} go={go} />}
           {page === "referrals" && <Referrals providers={providers} preset={referralPreset} addAction={addAction} />}
           {page === "facilities" && <Facilities providers={providers} period={reportingPeriod} addAction={addAction} />}
-          {page === "actions" && <Actions actions={actions} setActions={setActions} workPlans={workPlans} focusId={actionFocusId} clearFocus={() => setActionFocusId(null)} onInitiate={(action) => setSetupSource(action.id)} onOpenPlan={openWorkPlan} />}
+          {page === "actions" && <Actions filter={navigation.filter} onClearFilter={() => setPage("actions")} actions={actions} setActions={setActions} workPlans={workPlans} focusId={actionFocusId} clearFocus={() => setActionFocusId(null)} onInitiate={(action) => setSetupSource(action.id)} onOpenPlan={openWorkPlan} />}
           {(page === "relations" || page === "workplans" || page === "measurements") && <ProviderRelations view={page} filter={navigation.filter} onOpenRegister={(filter) => setPage("workplans", { filter })} workPlans={workPlans} setWorkPlans={setWorkPlans} actions={actions} selectedId={selectedWorkPlanId} setSelectedId={setSelectedWorkPlanId} openSourceAction={openSourceAction} onCreate={() => setSetupSource("direct")} />}
         </main>
       </div>
@@ -393,81 +397,47 @@ export default function App({ page, setPage, navigation = {}, analyticsView = "p
   );
 }
 
-function Dashboard({ providers, period, actions, complianceTarget, ratioTarget, go, openProviders, openCompliance, openAdequacy, openReferrals }: { providers: Provider[]; period: string; actions: Action[]; complianceTarget: number; ratioTarget: number; go: (p: Page) => void; openProviders: (preset: ProviderFilterPreset) => void; openCompliance: (preset: ComplianceFilterPreset) => void; openAdequacy: (preset: AdequacyFilterPreset) => void; openReferrals: (preset: ReferralFilterPreset) => void }) {
-  const individuals = providers.filter((p) => p.type === "Individual" && p.status === "Active");
-  const facilities = providers.filter((p) => p.type === "Facility" && p.status === "Active");
-  const pcps = individuals.filter((p) => p.specialty === "Primary Care");
-  const compliancePcps = providers.filter((p) => p.type === "Individual" && p.specialty === "Primary Care");
-  const avgCompliance = Math.round(pcps.reduce((sum, provider) => sum + getPeriod(provider, period).preventiveCompliance, 0) / Math.max(pcps.length, 1));
-  const directoryCompliance = Math.round(compliancePcps.reduce((sum, provider) => sum + getPeriod(provider, period).preventiveCompliance, 0) / Math.max(compliancePcps.length, 1));
-  const poorFacilities = facilities.filter((provider) => { const metrics = getPeriod(provider, period); return metrics.satisfaction < 80 || metrics.hospitalization > 7; }).length;
-  const adequacy = adequacyRows(providers, ratioTarget);
-  const gapRows = adequacy.filter((row) => row.gap > 0);
-  const gapCounties = new Set(gapRows.map((row) => row.county));
-  const membersInGapAreas = [...gapCounties].reduce((sum, county) => sum + memberCounts[county], 0);
-  const topAdequacyPressure = [...adequacy].sort((a, b) => b.gap - a.gap || b.ratio - a.ratio)[0];
-  const totalReferrals = referralData.reduce((sum, row) => sum + row.referrals, 0);
-  const affectedMembers = referralData.reduce((sum, row) => sum + row.members, 0);
-  const highPriorityReferrals = referralData.filter((row) => row.priority === "High");
+function Dashboard({ actions, onOpenActions }: { actions: Action[]; onOpenActions: (filter?: string) => void }) {
+  const activeActions = actions.filter(action => !["Completed", "Cancelled", "Dismissed"].includes(action.status));
+  const priorities = ["High", "Medium", "Low"];
+  const statuses = ["New", "Under Review", "Approved", "In Progress", "In Execution", "On Hold"];
+  const openFiltered = (criteria: Record<string, string> = {}) => onOpenActions(new URLSearchParams({ active: "1", ...criteria }).toString());
+  const countLink = (count: number, criteria: Record<string, string>, label: string) => <button className="action-count-link" onClick={() => openFiltered(criteria)} aria-label={`View ${count} active actions: ${label}`}>{count}</button>;
+  const groups: { title: string; label: string; key: 'owner' | 'department' | 'priority' | 'status' | 'category'; values?: string[] }[] = [
+    { title: "Actions by owner", label: "Owner", key: "owner" },
+    { title: "Actions by department", label: "Department", key: "department" },
+    { title: "Actions by priority", label: "Priority", key: "priority", values: ["High", "Medium", "Low"] },
+    { title: "Actions by status", label: "Status", key: "status", values: statuses },
+    { title: "Actions by type", label: "Screen of origin", key: "category" },
+  ];
   return <div className="workflow-page">
-    <PageHeader eyebrow="Network performance" title="Membership workflow" description="A focused view of participation, quality performance, and network growth opportunities." action={<Button onClick={() => go("actions")}>Review action plan</Button>} />
-    <div className="stat-grid">
-      <Stat label="Preventive care compliance" value={`${avgCompliance}%`} note={`${getPeriodLabel(period)} · target ${complianceTarget}%`} tone={avgCompliance >= complianceTarget ? "blue" : "amber"} onClick={() => go("compliance")} />
-      <Stat label="County-specialty gaps" value={gapRows.length} note="Require network growth" tone="amber" onClick={() => go("adequacy")} />
-      <Stat label="Manageable DOFR services" value={3} note="Awaiting expanded review" tone="blue" onClick={() => go("dofr")} />
-      <Stat label="Out-of-network referrals" value={totalReferrals.toLocaleString()} note="+8.4% over prior period" tone="red" onClick={() => go("referrals")} />
-      <Stat label="Facilities requiring action" value={poorFacilities} note="Education or replacement" tone="red" onClick={() => go("facilities")} />
-    </div>
-    <div className="section-heading">
-      <div><h2>Provider directory snapshot</h2><p>Operational views of participation, patient access, and directory accuracy.</p></div>
-      <Button variant="ghost" onClick={() => openProviders("all")}>Open full directory</Button>
-    </div>
-    <div className="stat-grid compact provider-snapshot">
-      <Stat label="Total directory records" value={providers.length} note={`${providers.filter((p) => p.type === "Individual").length} clinicians · ${providers.filter((p) => p.type === "Facility").length} facilities`} onClick={() => openProviders("all")} />
-      <Stat label="Active in-network" value={providers.filter((p) => p.status === "Active" && p.network === "In Network").length} note="Contracted and participating" tone="blue" onClick={() => openProviders("active-in-network")} />
-      <Stat label="Accepting new patients" value={providers.filter((p) => p.details.acceptingNewPatients).length} note={`${providers.filter((p) => p.details.telehealth).length} offer telehealth`} onClick={() => openProviders("accepting-patients")} />
-      <Stat label="Attestations due" value={providers.filter((p) => p.details.verificationStatus === "Attestation due").length} note="Directory validation required" tone="amber" onClick={() => openProviders("attestations-due")} />
-      <Stat label="Pending credentialing" value={providers.filter((p) => p.status === "Pending").length} note="Primary-source review in progress" tone="amber" onClick={() => openProviders("pending-credentialing")} />
-    </div>
-    <div className="section-heading">
-      <div><h2>Preventive care compliance</h2><p>Performance, eligible cohorts, and active improvement work.</p></div>
-      <Button variant="ghost" onClick={() => openCompliance("below-target")}>Open compliance</Button>
-    </div>
-    <div className="stat-grid compact provider-snapshot">
-      <Stat label="IPA compliance" value={`${directoryCompliance}%`} note={`${getPeriodLabel(period)} evaluated PCPs`} tone="blue" onClick={() => openCompliance("all")} />
-      <Stat label="Below period target" value={compliancePcps.filter((provider) => getPeriod(provider, period).preventiveCompliance < complianceTarget).length} note={getPeriodLabel(period)} tone="red" onClick={() => openCompliance("below-target")} />
-      <Stat label="PCPs evaluated" value={compliancePcps.length} note="Minimum 30 eligible members" onClick={() => openCompliance("evaluated")} />
-      <Stat label="Improvement plans open" value={3} note="1 due within 14 days" tone="amber" onClick={() => openCompliance("improvement-plans")} />
-    </div>
-    <div className="section-heading">
-      <div><h2>Network adequacy</h2><p>Coverage gaps, member impact, and recruitment demand.</p></div>
-      <Button variant="ghost" onClick={() => openAdequacy("gaps")}>Open adequacy</Button>
-    </div>
-    <div className="stat-grid compact provider-snapshot">
-      <Stat label="County-specialty gaps" value={gapRows.length} note={`Across ${gapCounties.size} counties`} tone="red" onClick={() => openAdequacy("gaps")} />
-      <Stat label="Additional providers needed" value={adequacy.reduce((sum, row) => sum + row.gap, 0)} note="Prioritized by largest gap" tone="amber" onClick={() => openAdequacy("providers-needed")} />
-      <Stat label="Members in gap areas" value={membersInGapAreas.toLocaleString()} note="Prioritized by member impact" onClick={() => openAdequacy("member-impact")} />
-      <Stat label="Recruitment opportunities" value={Math.min(6, gapRows.length)} note="Top opportunities to action" tone="blue" onClick={() => openAdequacy("recruitment")} />
-    </div>
-    <div className="section-heading">
-      <div><h2>Out-of-network referrals</h2><p>Referral leakage, member impact, and specialty priorities.</p></div>
-      <Button variant="ghost" onClick={() => openReferrals("volume")}>Open referrals</Button>
-    </div>
-    <div className="stat-grid compact provider-snapshot">
-      <Stat label="OON referrals" value={totalReferrals.toLocaleString()} note="Ranked by referral volume" tone="red" onClick={() => openReferrals("volume")} />
-      <Stat label="Affected members" value={affectedMembers.toLocaleString()} note="Specialties affecting 125+ members" onClick={() => openReferrals("member-impact")} />
-      <Stat label="OON share" value="18.6%" note="Rising contributors to leakage" tone="amber" onClick={() => openReferrals("rising-share")} />
-      <Stat label="High-priority specialties" value={highPriorityReferrals.length} note={`Combined ${highPriorityReferrals.reduce((sum, row) => sum + row.referrals, 0).toLocaleString()} referrals`} tone="blue" onClick={() => openReferrals("high-priority")} />
-    </div>
-    <div className="dashboard-grid action-grid">
-      <section className="card wide"><div className="card-head"><div><h2>Recommended actions</h2><p>Prioritized from current network and quality signals</p></div><Button variant="ghost" onClick={() => go("actions")}>View all {actions.length}</Button></div>
-        <div className="recommendations">
-          {[
-            [topAdequacyPressure.gap ? "High" : "Medium", `${topAdequacyPressure.gap ? "Recruit" : "Monitor"} ${topAdequacyPressure.specialty} coverage in ${topAdequacyPressure.county}`, `${topAdequacyPressure.ratio.toLocaleString()} members per provider; ${topAdequacyPressure.gap ? `add ${topAdequacyPressure.gap} provider${topAdequacyPressure.gap === 1 ? "" : "s"}` : "currently within threshold"}`, "adequacy" as Page],
-            ["High", "Review low-performing PCP cohort", `${pcps.filter((provider) => getPeriod(provider, period).preventiveCompliance < complianceTarget).length} PCPs below target in ${getPeriodLabel(period)}`, "compliance" as Page],
-            ["Medium", "Assess advanced imaging for DOFR expansion", "Stable utilization; local specialist capacity requires validation", "dofr" as Page],
-          ].map(([priority, title, reason, target]) => <div className="recommendation" key={title}><Badge tone={priority === "High" ? "bad" : "warn"}>{priority}</Badge><div><b>{title}</b><p>{reason}</p></div><Button variant="secondary" onClick={() => go(target as Page)}>Open workflow</Button></div>)}
-        </div>
+    <PageHeader eyebrow="Action overview" title="Membership workflow" description={`Counts across ${activeActions.length} active actions in Action Center.`} />
+    <div className="membership-action-grids">
+      {groups.map(group => {
+        const counts = new Map<string, number>((group.values || []).map(value => [value, 0]));
+        activeActions.forEach(action => {
+          const value = action[group.key]?.trim() || "Unassigned";
+          counts.set(value, (counts.get(value) || 0) + 1);
+        });
+        const rows = [...counts.entries()];
+        if (!group.values) rows.sort(([a], [b]) => a.localeCompare(b));
+        return <section className="table-card" key={group.key} aria-labelledby={`action-group-${group.key}`}>
+          <div className="card-head"><h2 id={`action-group-${group.key}`}>{group.title}</h2></div>
+          <div className="table-wrap"><table>
+            <thead><tr><th scope="col">{group.label}</th><th scope="col" className="action-count">Action count</th></tr></thead>
+            <tbody>{rows.map(([value, count]) => <tr key={value}><th scope="row">{value}</th><td className="action-count"><button className="action-count-link" onClick={() => openFiltered({ [group.key]: value })} aria-label={`View ${count} actions for ${group.label}: ${value}`}>{count}</button></td></tr>)}</tbody>
+            <tfoot><tr><th scope="row">Total</th><td className="action-count"><button className="action-count-link" onClick={() => openFiltered()} aria-label="View all active actions">{activeActions.length}</button></td></tr></tfoot>
+          </table></div>
+          {!rows.length && <Empty title="No actions yet" message="Actions will appear here when added to Action Center." />}
+        </section>;
+      })}
+      <section className="table-card action-priority-matrix" aria-labelledby="action-status-priority">
+        <div className="card-head"><h2 id="action-status-priority">Actions by status and priority</h2></div>
+        <div className="table-wrap"><table>
+          <thead><tr><th scope="col">Status</th>{priorities.map(priority => <th scope="col" className="action-count" key={priority}>{priority}</th>)}<th scope="col" className="action-count">Total</th></tr></thead>
+          <tbody>{statuses.map(status => <tr key={status}><th scope="row">{status}</th>{priorities.map(priority => <td className="action-count" key={priority}>{countLink(activeActions.filter(action => action.status === status && action.priority === priority).length, { status, priority }, `${status}, ${priority} priority`)}</td>)}<td className="action-count">{countLink(activeActions.filter(action => action.status === status).length, { status }, status)}</td></tr>)}</tbody>
+          <tfoot><tr><th scope="row">Total</th>{priorities.map(priority => <td className="action-count" key={priority}>{countLink(activeActions.filter(action => action.priority === priority).length, { priority }, `${priority} priority`)}</td>)}<td className="action-count">{countLink(activeActions.length, {}, "all")}</td></tr></tfoot>
+        </table></div>
       </section>
     </div>
   </div>;
@@ -839,10 +809,20 @@ function ProviderRelations({ view, filter, onOpenRegister, workPlans, setWorkPla
 
 function WorkPlanDetail({ plan, source, onBack, onUpdate, openSourceAction, measurements }: { measurements: Measurement[]; plan: WorkPlan; source?: Action; onBack: () => void; onUpdate: (plan: WorkPlan) => void; openSourceAction: (id: string) => void }) {
   const [tab, setTab] = useState("Overview");
+  const [taskFormOpen, setTaskFormOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<WorkTask | undefined>();
+  const [taskNotice, setTaskNotice] = useState("");
   const [riskDraft, setRiskDraft] = useState<WorkRisk | null>(null);
   const save = (changes: Partial<WorkPlan>, activity?: string) => onUpdate({ ...plan, ...changes, lastUpdated: new Date().toISOString().slice(0, 10), activity: activity ? [{ date: new Date().toISOString().slice(0, 10), text: activity, by: "Maya Ortiz" }, ...plan.activity] : plan.activity });
   const updateTask = (id: string, changes: Partial<WorkTask>) => { const tasks = plan.tasks.map((task) => task.id === id ? { ...task, ...changes } : task); const progress = tasks.length ? Math.round(tasks.filter((task) => task.status === "Completed").length / tasks.length * 100) : 0; save({ tasks, progress }, `Task updated: ${tasks.find((task) => task.id === id)?.name}`); };
-  const addTask = () => { const name = window.prompt("Task name"); if (!name) return; save({ tasks: [...plan.tasks, { id: `${plan.id}-T${plan.tasks.length + 1}`, name, owner: "Unassigned", department: "Provider Relations", due: plan.due, status: "Not Started" }] }, `Task added: ${name}`); };
+  const addTask = () => { setEditingTask(undefined); setTaskNotice(""); setTaskFormOpen(true); };
+  const saveTask = (task: WorkTask) => {
+    const tasks = editingTask ? plan.tasks.map(item => item.id === task.id ? task : item) : [...plan.tasks, task];
+    save({ tasks, progress: Math.round(tasks.filter(item => item.status === "Completed").length / tasks.length * 100) }, `Task ${editingTask ? "updated" : "added"}: ${task.name}`);
+    setTaskFormOpen(false);
+    setTab("Tasks");
+    setTaskNotice(`Task ${editingTask ? "updated" : "added"}: ${task.name}`);
+  };
   const addIssue = (type: "Risk" | "Blocker" | "Decision" = "Risk") => setRiskDraft({ id: "", type, issue: "", impact: "", severity: "Medium", owner: plan.owner, due: plan.nextReview || plan.due, decisionFrom: type === "Decision" ? plan.sponsor : undefined, status: "Open" });
   const requestDecision = () => addIssue("Decision");
   const saveRisk = (risk: WorkRisk) => {
@@ -855,25 +835,41 @@ function WorkPlanDetail({ plan, source, onBack, onUpdate, openSourceAction, meas
     <div className="work-plan-header"><div><p className="eyebrow">{plan.id} · {plan.template}</p><h1>{plan.name}</h1><div className="badge-row"><Badge tone={toneFor(plan.status)}>{plan.status}</Badge><Badge tone={toneFor(plan.health)}>{plan.health}</Badge><Badge tone={toneFor(plan.priority)}>{plan.priority} priority</Badge></div></div><div className="work-plan-actions">{source && <Button variant="secondary" onClick={() => openSourceAction(source.id)}>Open source action</Button>}<Button variant="secondary" onClick={addTask}>Add task</Button><Button variant="secondary" onClick={requestDecision}>Request decision</Button><Button onClick={close}>Close plan</Button></div></div>
     <div className="progress-strip"><div><span>Progress</span><b>{plan.progress}%</b><i><em style={{ width: `${plan.progress}%` }} /></i></div><div><span>Initiative owner</span><b>{plan.owner}</b></div><div><span>Owning department</span><b>{plan.department}</b></div><div><span>Target completion</span><b>{plan.due}</b></div><div><span>Next review</span><b>{plan.nextReview}</b></div></div>
     <div className="action-tabs work-plan-tabs">{["Overview", "Tasks", "Outcomes & KPIs", "Risks & Decisions", "Activity"].map((item) => <button className={tab === item ? "active" : ""} onClick={() => setTab(item)} key={item}>{item}</button>)}</div>
+    {taskFormOpen && <TaskForm plan={plan} initial={editingTask} onClose={() => setTaskFormOpen(false)} onSave={saveTask} />}
+    {taskNotice && <p className="task-success" role="status">{taskNotice}</p>}
     {tab === "Overview" && <WorkPlanOverview plan={plan} />}
-    {tab === "Tasks" && <><section className="table-card"><div className="card-head padded"><div><h2>Tasks</h2><p>Dependencies remain visible until prerequisites are complete.</p></div><Button onClick={addTask}>Add task</Button></div><div className="table-wrap"><PaginatedTable><thead><tr><th>Task</th><th>Owner</th><th>Department</th><th>Due</th><th>Dependency</th><th>Status</th></tr></thead><tbody>{plan.tasks.map((task) => <tr key={task.id}><td><b>{task.name}</b><small>{task.note || task.id}</small></td><td><Select value={task.owner} onChange={(owner) => updateTask(task.id, { owner })}><option>Unassigned</option><option>Maya Ortiz</option><option>Jordan Lee</option><option>Priya Shah</option><option>Evan Brooks</option></Select></td><td>{task.department}</td><td>{task.due}</td><td>{task.dependency || "None"}</td><td><Select value={task.status} onChange={(status) => updateTask(task.id, { status: status as WorkTask["status"] })}>{["Not Started", "In Progress", "Blocked", "Awaiting Review", "Completed", "Cancelled"].map((item) => <option key={item}>{item}</option>)}</Select></td></tr>)}</tbody></PaginatedTable></div></section></>}
+    {tab === "Tasks" && <><section className="table-card"><div className="card-head padded"><div><h2>Tasks</h2><p>Dependencies remain visible until prerequisites are complete.</p></div><Button onClick={addTask}>Add task</Button></div><div className="table-wrap"><PaginatedTable><thead><tr><th>Task</th><th>Owner</th><th>Department</th><th>Due</th><th>Dependency</th><th>Status</th><th>Actions</th></tr></thead><tbody>{plan.tasks.map((task) => <tr key={task.id}><td><b>{task.name}</b><small>{task.note || task.id}</small></td><td><Select ariaLabel={`Owner for ${task.name}`} value={task.owner} onChange={(owner) => updateTask(task.id, { owner })}>{[...new Set(["Unassigned", plan.owner, task.owner, "Maya Ortiz", "Jordan Lee", "Priya Shah", "Evan Brooks"])].map(owner => <option key={owner}>{owner}</option>)}</Select></td><td>{task.department}</td><td>{task.due}</td><td>{plan.tasks.find(item => item.id === task.dependency)?.name || task.dependency || "None"}</td><td><Select value={task.status} onChange={(status) => updateTask(task.id, { status: status as WorkTask["status"] })}>{["Not Started", "In Progress", "Blocked", "Awaiting Review", "Completed", "Cancelled"].map((item) => <option key={item}>{item}</option>)}</Select></td><td><button className="btn btn-ghost" aria-label={`Edit ${task.name}`} onClick={() => { setEditingTask(task); setTaskNotice(""); setTaskFormOpen(true); }}>Edit</button></td></tr>)}</tbody></PaginatedTable></div></section></>}
     {tab === "Outcomes & KPIs" && <OutcomeMeasurements plan={plan} measurements={measurements} save={save} />}
     {tab === "Risks & Decisions" && <WorkPlanRisks plan={plan} onAdd={() => addIssue()} onEdit={risk => setRiskDraft({ ...risk, type: riskType(risk) })} onResolve={risk => save({ risks: plan.risks.map(item => item.id === risk.id ? { ...item, status: "Resolved" } : item) }, `Issue resolved: ${risk.issue}`)} />}
     {riskDraft && <RiskForm initial={riskDraft} onClose={() => setRiskDraft(null)} onSave={saveRisk} />}    {tab === "Activity" && <section className="card activity-card"><div className="card-head"><div><h2>Activity and history</h2><p>Simulated prototype history</p></div></div><div className="activity-feed">{plan.activity.map((item, index) => <div key={`${item.date}-${index}`}><i /><span><b>{item.text}</b><small>{item.date} · {item.by}</small></span></div>)}</div></section>}
   </>;
 }
 
-function Actions({ actions, setActions, workPlans, focusId, clearFocus, onInitiate, onOpenPlan }: { actions: Action[]; setActions: React.Dispatch<React.SetStateAction<Action[]>>; workPlans: WorkPlan[]; focusId: string | null; clearFocus: () => void; onInitiate: (action: Action) => void; onOpenPlan: (id: string) => void }) {
+function Actions({ filter, onClearFilter, actions, setActions, workPlans, focusId, clearFocus, onInitiate, onOpenPlan }: { filter?: string; onClearFilter: () => void; actions: Action[]; setActions: React.Dispatch<React.SetStateAction<Action[]>>; workPlans: WorkPlan[]; focusId: string | null; clearFocus: () => void; onInitiate: (action: Action) => void; onOpenPlan: (id: string) => void }) {
   const [status, setStatus] = useState("All");
   const [selected, setSelected] = useState<Action | null>(null);
   useEffect(() => { if (!focusId) return; const action = actions.find((item) => item.id === focusId); if (action) setSelected(action); clearFocus(); }, [focusId, actions, clearFocus]);
-  const shown = actions.filter((action) => status === "All" || action.status === status);
+  useEffect(() => { setStatus("All"); }, [filter]);
+  const filterParams = new URLSearchParams(filter || "");
+  const filterKeys = ["owner", "department", "priority", "status", "category"] as const;
+  // Continue to support previously bookmarked single-dimension filters.
+  if (filter && !filter.includes("=")) {
+    const separator = filter.indexOf(":");
+    if (separator > 0) filterParams.set(filter.slice(0, separator), filter.slice(separator + 1));
+  }
+  const activeOnly = filterParams.get("active") === "1";
+  const criteria = filterKeys.filter(key => filterParams.has(key));
+  const validFilter = activeOnly || criteria.length > 0;
+  const filterLabel = [activeOnly ? "Active actions" : "", ...criteria.map(key => `${key === "category" ? "Screen of origin" : key.charAt(0).toUpperCase() + key.slice(1)}: ${filterParams.get(key)}`)].filter(Boolean).join(" / ");
+  const filteredActions = actions.filter(action => (!activeOnly || !["Completed", "Cancelled", "Dismissed"].includes(action.status)) && criteria.every(key => (action[key]?.trim() || "Unassigned") === filterParams.get(key)));
+  const shown = filteredActions.filter((action) => status === "All" || action.status === status);
   const update = (action: Action) => { setActions((current) => current.map((item) => item.id === action.id ? action : item)); setSelected(action); };
   const linked = selected ? workPlans.find((plan) => plan.id === selected.workPlanId || plan.actionId === selected.id) : undefined;
   return <>
     <PageHeader eyebrow="Coordinated workflow" title="Action Center" description="Approve strategic actions, assign accountability, and initiate linked Provider Relations execution." />
-    <div className="action-tabs">{["All", "New", "Under Review", "Approved", "In Execution", "On Hold", "Completed"].map((item) => <button className={status === item ? "active" : ""} onClick={() => setStatus(item)} key={item}>{item}<span>{item === "All" ? actions.length : actions.filter((action) => action.status === item).length}</span></button>)}</div>
-    <section className="table-card"><div className="table-wrap"><PaginatedTable><thead><tr><th>Action</th><th>Opportunity / evidence</th><th>Owner / department</th><th>Priority</th><th>Approval</th><th>Target date</th><th>Status</th><th>Work plan</th></tr></thead><tbody>{shown.map((action) => { const plan = workPlans.find((item) => item.id === action.workPlanId || item.actionId === action.id); return <tr key={action.id} onClick={() => setSelected(action)} className="clickable-row"><td><b>{action.subject}</b><small>{action.id} · {action.category}</small></td><td className="reason-cell">{action.reason}<small>{action.evidence}</small></td><td><b>{action.owner}</b><small>{action.department || "Unassigned"}</small></td><td><Badge tone={toneFor(action.priority)}>{action.priority}</Badge></td><td><Badge tone={toneFor(action.approval || "Pending")}>{action.approval || "Pending"}</Badge></td><td>{action.due}</td><td><Badge tone={toneFor(action.status)}>{action.status}</Badge></td><td>{plan ? <><b>{plan.status}</b></> : "Not started"}</td></tr>; })}</tbody></PaginatedTable></div>{!shown.length && <Empty title="No actions in this status" message="Choose another lifecycle stage." />}</section>
+    {validFilter && <div className="toolbar"><span className="result-count">{filterLabel} ? {shown.length} actions</span><Button variant="ghost" onClick={onClearFilter}>Clear filter</Button></div>}
+    <div className="action-tabs">{["All", "New", "Under Review", "Approved", "In Progress", "In Execution", "On Hold", "Completed", "Cancelled", "Dismissed"].map((item) => <button className={status === item ? "active" : ""} onClick={() => setStatus(item)} key={item}>{item}<span>{item === "All" ? filteredActions.length : filteredActions.filter((action) => action.status === item).length}</span></button>)}</div>
+    <section className="table-card"><div className="table-wrap"><PaginatedTable><thead><tr><th>Action</th><th>Opportunity / evidence</th><th>Owner / department</th><th>Priority</th><th>Approval</th><th>Target date</th><th>Status</th><th>Work plan</th></tr></thead><tbody>{shown.map((action) => { const plan = workPlans.find((item) => item.id === action.workPlanId || item.actionId === action.id); return <tr key={action.id} onClick={() => setSelected(action)} className="clickable-row"><td><b>{action.subject}</b><small>{action.id} · {action.category}</small></td><td className="reason-cell">{action.reason}<small>{action.evidence}</small></td><td><b>{action.owner}</b><small>{action.department || "Unassigned"}</small></td><td><Badge tone={toneFor(action.priority)}>{action.priority}</Badge></td><td><Badge tone={toneFor(action.approval || "Pending")}>{action.approval || "Pending"}</Badge></td><td>{action.due}</td><td><Badge tone={toneFor(action.status)}>{action.status}</Badge></td><td>{plan ? <><b>{plan.status}</b></> : "Not started"}</td></tr>; })}</tbody></PaginatedTable></div>{!shown.length && <Empty title="No actions in this status" message="Choose another lifecycle stage or clear the applied filter." />}</section>
     {selected && <div className="panel-backdrop" onClick={() => setSelected(null)}><aside className="detail-panel action-detail-panel" onClick={(event) => event.stopPropagation()}><div className="modal-head"><div><p className="eyebrow">{selected.id} · {selected.category}</p><h2>{selected.subject}</h2></div><button className="close" onClick={() => setSelected(null)}>×</button></div><div className="action-summary"><Badge tone={toneFor(selected.priority)}>{selected.priority} priority</Badge><Badge tone={toneFor(selected.status)}>{selected.status}</Badge><Badge tone={toneFor(selected.approval || "Pending")}>{selected.approval || "Pending"} approval</Badge></div>
       <section className="panel-section"><h3>Problem or opportunity</h3><p>{selected.reason}</p><h3>Source insight / evidence</h3><p>{selected.evidence || "No evidence note recorded."}</p><h3>Expected result</h3><p>{selected.expectedResult || "Not yet defined."}</p></section>
       <div className="detail-grid"><div><span>Accountable owner</span><b>{selected.owner}</b></div><div><span>Owning department</span><b>{selected.department || "Unassigned"}</b></div><div><span>Target start</span><b>{selected.start || "Not set"}</b></div><div><span>Target completion</span><b>{selected.due}</b></div><div><span>Last update</span><b>{linked?.lastUpdated || "No execution update"}</b></div><div><span>Next review</span><b>{selected.nextReview || "Not set"}</b></div></div>
