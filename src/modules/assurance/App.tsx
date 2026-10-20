@@ -1,3 +1,4 @@
+import { readAssuranceStorage } from "./storage";
 import { WorkflowDetail } from "./WorkflowDetail";
 import { initializeWorkflow, workflowDefinitions } from "./workflows";
 import { PaginatedTable, PaginatedList } from "../../components/PaginatedResults";
@@ -67,7 +68,7 @@ export default function App({ page, setPage }: { page: Page; setPage: (page: Pag
     } : initializeWorkflow(initializeQuality(initializeEligibility(item))));
     let restored = initialItems;
     try {
-      const saved: unknown = JSON.parse(localStorage.getItem("quickcap-credentialing-v1") || "{}");
+      const saved: unknown = JSON.parse(readAssuranceStorage("credentialing") || "{}");
       if (saved && typeof saved === "object" && !Array.isArray(saved)) {
         restored = restored.map(item => {
           const entry = (saved as Record<string, Item>)[item.id];
@@ -79,7 +80,7 @@ export default function App({ page, setPage }: { page: Page; setPage: (page: Pag
       }
     } catch { /* Keep initial credentialing cases if browser storage is unavailable. */ }
     try {
-      const saved: unknown = JSON.parse(localStorage.getItem("quickcap-eligibility-v1") || "{}");
+      const saved: unknown = JSON.parse(readAssuranceStorage("eligibility") || "{}");
       if (saved && typeof saved === "object" && !Array.isArray(saved)) {
         restored = restored.map(item => {
           const entry = (saved as Record<string, Item>)[item.id];
@@ -91,7 +92,7 @@ export default function App({ page, setPage }: { page: Page; setPage: (page: Pag
       }
     } catch { /* Keep initial eligibility cases if browser storage is unavailable. */ }
     try {
-      const saved: unknown = JSON.parse(localStorage.getItem("quickcap-quality-v1") || "{}");
+      const saved: unknown = JSON.parse(readAssuranceStorage("quality") || "{}");
       if (saved && typeof saved === "object" && !Array.isArray(saved)) {
         restored = restored.map(item => {
           const entry = (saved as Record<string, Item>)[item.id];
@@ -105,7 +106,7 @@ export default function App({ page, setPage }: { page: Page; setPage: (page: Pag
       }
     } catch { /* Keep initial quality cases if browser storage is unavailable. */ }
     try {
-      const saved = JSON.parse(localStorage.getItem("quickcap-workflows-v1") || "{}");
+      const saved = JSON.parse(readAssuranceStorage("workflows") || "{}");
       restored = restored.map(item => {
         const entry = saved?.[item.id];
         const state = entry?.workflow;
@@ -120,19 +121,19 @@ export default function App({ page, setPage }: { page: Page; setPage: (page: Pag
     return syncEligibilityDependency(restored);
   });
   useEffect(() => {
-    try { localStorage.setItem("quickcap-credentialing-v1", JSON.stringify(Object.fromEntries(items.filter(item => item.credentialing).map(item => [item.id, item])))); }
+    try { localStorage.setItem("arcwell-credentialing-v1", JSON.stringify(Object.fromEntries(items.filter(item => item.credentialing).map(item => [item.id, item])))); }
     catch { setToast("Browser storage unavailable. Credentialing changes will last for this session only."); }
   }, [items]);
   useEffect(() => {
-    try { localStorage.setItem("quickcap-eligibility-v1", JSON.stringify(Object.fromEntries(items.filter(item => item.eligibility).map(item => [item.id, item])))); }
+    try { localStorage.setItem("arcwell-eligibility-v1", JSON.stringify(Object.fromEntries(items.filter(item => item.eligibility).map(item => [item.id, item])))); }
     catch { setToast("Browser storage unavailable. Eligibility changes will last for this session only."); }
   }, [items]);
   useEffect(() => {
-    try { localStorage.setItem("quickcap-quality-v1", JSON.stringify(Object.fromEntries(items.filter(item => item.quality).map(item => [item.id, item])))); }
+    try { localStorage.setItem("arcwell-quality-v1", JSON.stringify(Object.fromEntries(items.filter(item => item.quality).map(item => [item.id, item])))); }
     catch { setToast("Browser storage unavailable. Quality changes will last for this session only."); }
   }, [items]);
   useEffect(() => {
-    try { localStorage.setItem("quickcap-workflows-v1", JSON.stringify(Object.fromEntries(items.filter(item => item.workflow).map(item => [item.id, item])))); }
+    try { localStorage.setItem("arcwell-workflows-v1", JSON.stringify(Object.fromEntries(items.filter(item => item.workflow).map(item => [item.id, item])))); }
     catch { setToast("Browser storage unavailable. Workflow changes will last for this session only."); }
   }, [items]);
   const [selected,setSelected] = useState(seed[1].id);

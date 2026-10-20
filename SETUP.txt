@@ -1,4 +1,4 @@
-QuickCap IPA Workspace
+Arcwell IPA Workspace
 
 Run commands from this directory:
   npm install
@@ -24,7 +24,7 @@ URLs use #/intelligence/providers or #/assurance/register, for example.
 Assurance detail URLs display the session's selected obligation; the selection
 is not encoded in the URL.
 
-Validation completed in C:\Users\nimals\Documents\QuickCapModules.
+Validation completed in the workspace directory.
 TypeScript and production build pass. Browser checks cover all navigation
 links, Back and Forward, state retention, skip link, and mobile navigation.
 The archive/incomplete-dependencies directory is an unused installation

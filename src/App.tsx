@@ -9,7 +9,7 @@ type Navigation = { planId?: string; filter?: string };
 const intelligencePages: [IntelligencePage, string][] = [
   ['dashboard', 'Membership workflow'],
   ['providers', 'Provider directory'], ['compliance', 'Preventive compliance'],
-  ['adequacy', 'Network adequacy'], ['dofr', 'Division of responsibility'],
+  ['adequacy', 'Network adequacy'], ['dofr', 'DOFR Expansion'],
   ['referrals', 'Referral intelligence'], ['facilities', 'Facilities'],
   ['actions', 'Action center'],
 ];
@@ -65,9 +65,9 @@ export default function App() {
   }
   return <div className="workspace">
     <a className="skip-link" href="#workspace-content" onClick={event => { event.preventDefault(); document.getElementById("workspace-content")?.focus(); }}>Skip to content</a>
-    <header className="workspace-mobile"><strong>QuickCap · IPA Workspace</strong><button onClick={() => setNavigationOpen(!navigationOpen)} aria-expanded={navigationOpen} aria-controls="workspace-navigation">Menu</button></header>
+    <header className="workspace-mobile"><strong>Arcwell IPA · IPA Workspace</strong><button onClick={() => setNavigationOpen(!navigationOpen)} aria-expanded={navigationOpen} aria-controls="workspace-navigation">Menu</button></header>
     <aside id="workspace-navigation" className={`workspace-navigation ${navigationOpen ? 'is-open' : ''}`}>
-      <div className="workspace-brand"><span>QC</span><div><strong>QuickCap</strong><small>IPA Workspace</small></div></div>
+      <div className="workspace-brand"><span>AW</span><div><strong>Arcwell IPA</strong><small>IPA Workspace</small></div></div>
       <nav aria-label="Workspace navigation">
         {([
           ['intelligence', 'Membership Management', intelligencePages],
