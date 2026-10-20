@@ -183,3 +183,5 @@ h1,h2,h3,p { margin-top: 0; } h1 { margin-bottom: 6px; font-size: 28px; line-hei
 }
 
 }
+
+.intelligence-module .topbar .top-actions { margin-left: auto; }

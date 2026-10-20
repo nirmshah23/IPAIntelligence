@@ -7,16 +7,16 @@ import './modules/assurance/styles.css';
 type Module = 'intelligence' | 'relations' | 'assurance';
 type Navigation = { planId?: string; filter?: string };
 const intelligencePages: [IntelligencePage, string][] = [
-  ['dashboard', 'Executive workflow'], ['analytics', 'Performance analytics'],
+  ['dashboard', 'Membership workflow'], ['analytics', 'Performance analytics'],
   ['providers', 'Provider directory'], ['compliance', 'Preventive compliance'],
   ['adequacy', 'Network adequacy'], ['dofr', 'Division of responsibility'],
   ['referrals', 'Referral intelligence'], ['facilities', 'Facilities'],
   ['actions', 'Action center'],
 ];
-const relationsPages: [IntelligencePage, string][] = [['relations', 'Relations workflow'], ['workplans', 'Work Plan']];
+const relationsPages: [IntelligencePage, string][] = [['relations', 'Relations workflow'], ['workplans', 'Work plan']];
 const assurancePages: [AssurancePage, string][] = [
-  ['overview', 'Assurance workflow'], ['queue', 'My work queue'],
-  ['register', 'All obligations'], ['exceptions', 'Exceptions & escalations'],
+  ['overview', 'Compliance workflow'], ['queue', 'Work queue'],
+  ['exceptions', 'Exceptions & escalations'],
   ['calendar', 'Compliance calendar'], ['editor', 'Definition editor'],
   ['reports', 'Reports & trends'],
 ];
@@ -30,7 +30,7 @@ function initialRoute() {
     navigation: { planId: params.get('plan') || undefined, filter: params.get('filter') || undefined } as Navigation,
     relations: (page === 'workplans' ? 'workplans' : 'relations') as IntelligencePage,
     intelligence: intelligencePages.some(([id]) => id === page) ? page as IntelligencePage : 'dashboard' as IntelligencePage,
-    assurance: [...assurancePages.map(([id]) => id), 'detail'].includes(page) ? page as AssurancePage : 'overview' as AssurancePage,
+    assurance: page === 'register' ? 'queue' as AssurancePage : [...assurancePages.map(([id]) => id), 'detail'].includes(page) ? page as AssurancePage : 'overview' as AssurancePage,
   };
 }
 export default function App() {
@@ -67,7 +67,7 @@ export default function App() {
         {([
           ['intelligence', 'Membership Management', intelligencePages],
           ['relations', 'Provider Relations', relationsPages],
-          ['assurance', 'Operational Assurance', assurancePages],
+          ['assurance', 'Operational Compliance', assurancePages],
         ] as const).map(([module, title, pages]) => <div className="navigation-group" key={module}>
           <button className="navigation-group-toggle" aria-expanded={expanded[module]} aria-controls={`navigation-${module}`} onClick={() => setExpanded(current => ({ ...current, [module]: !current[module] }))}>
             <span>{title}</span><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" style={{ transform: expanded[module] ? "rotate(90deg)" : undefined }}><path d="m4 2 4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
@@ -82,7 +82,7 @@ export default function App() {
     {navigationOpen && <button className="workspace-overlay" aria-label="Close navigation" onClick={() => setNavigationOpen(false)} />}
     <div id="workspace-content" className="workspace-content" tabIndex={-1}>
       <section className="intelligence-module" aria-label={route.module === "relations" ? "Provider Relations" : "Membership Management"} hidden={route.module === 'assurance'}><Intelligence page={route.module === "relations" ? route.relations : route.intelligence} navigation={route.navigation} setPage={(page, navigation) => navigate(page === "relations" || page === "workplans" ? "relations" : "intelligence", page, navigation)} /></section>
-      <section className="assurance-module" aria-label="Operational Assurance" hidden={route.module !== 'assurance'}><Assurance page={route.assurance} setPage={page => navigate('assurance', page)} /></section>
+      <section className="assurance-module" aria-label="Operational Compliance" hidden={route.module !== 'assurance'}><Assurance page={route.assurance} setPage={page => navigate('assurance', page)} /></section>
     </div>
   </div>;
 }
