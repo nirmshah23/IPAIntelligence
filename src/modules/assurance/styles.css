@@ -5,3 +5,64 @@
 @media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.three-col{grid-template-columns:1fr}.status-strip{grid-template-columns:1fr 1fr}.month>div{height:90px}.content{padding:18px}.search{width:300px}}
 
 }
+.exceptions-page .btn { min-height:34px; border-radius:7px; padding:0 13px; border:1px solid transparent; font-size:12px; font-weight:700; }
+.exceptions-page .btn.secondary { border-color:#cdd9d5; color:var(--ink); }
+.exceptions-page .btn.text { padding-inline:7px; }
+.exceptions-toolbar { display:flex; align-items:flex-end; flex-wrap:wrap; gap:9px; margin:14px 0; padding:13px; background:white; border:1px solid var(--line); border-radius:9px; box-shadow:var(--shadow); }
+.exception-control { display:flex; flex-direction:column; gap:6px; margin:0; font-size:11px; font-weight:600; color:var(--ink); }
+.exception-control input,.exception-control select,.exception-control textarea { width:100%; min-height:34px; border:1px solid #cdd9d5; border-radius:7px; padding:8px 10px; background:white; color:var(--ink); font-size:12px; font-weight:400; }
+.exception-search { flex:1; min-width:250px; }
+.exception-count { margin-left:auto; padding-bottom:9px; color:var(--muted); font-size:11px; }
+.exceptions-page table { min-width:900px; }
+.exceptions-page th { padding:10px 13px; background:#f7f9f8; letter-spacing:.06em; }
+.exceptions-page td { padding:11px 13px; vertical-align:middle; }
+.exceptions-page tbody tr { cursor:default; }
+.exception-link { border:0; background:transparent; padding:0; text-align:left; }
+.exception-link:hover strong { color:var(--teal); text-decoration:underline; }
+.exception-modal { width:min(700px,calc(100% - 40px)); max-height:92vh; margin:auto; padding:0; border:0; border-radius:12px; background:white; color:var(--ink); box-shadow:0 24px 70px #0003; overflow:auto; }
+.exception-modal::backdrop { background:rgba(13,30,27,.42); backdrop-filter:blur(2px); }
+.exception-modal-head { display:flex; justify-content:space-between; align-items:flex-start; gap:15px; padding:20px 22px; border-bottom:1px solid var(--line); }
+.exception-modal-head h2 { margin:0; font-size:20px; }
+.exception-modal-head p { margin:0 0 6px; color:var(--muted); font-size:11px; }
+.exception-close { flex-shrink:0; border:0; background:#eef2f1; border-radius:7px; width:31px; height:31px; font-size:20px; color:var(--muted); }
+.exception-modal-body { display:grid; gap:15px; padding:20px 22px; }
+.exception-modal-body .alert-panel { margin:0; }
+.exception-control textarea { min-height:110px; resize:vertical; }
+.exception-check { display:flex; align-items:flex-start; gap:9px; margin:0; font-size:12px; line-height:1.5; }
+.exception-check input { width:16px; height:16px; margin:2px 0 0; accent-color:var(--teal); }
+.exception-guard { margin:0; font-size:11px; color:var(--muted); }
+.exception-modal-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:9px; padding:15px 22px; border-top:1px solid var(--line); }
+.exceptions-page :is(button,input,select,textarea):focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
+@media(max-width:600px) { .exception-search { min-width:100%; } .exception-count { width:100%; margin:0; } .exception-modal-actions .btn { flex:1; } }
+
+.assurance-module .credential-steps { display:flex; gap:12px; list-style:none; padding:0; margin:18px 0; }
+.assurance-module .credential-steps li { flex:1; padding:12px; border:1px solid var(--line); border-radius:7px; color:var(--muted); background:white; }
+.assurance-module .credential-steps [aria-current] { background:var(--teal2); color:var(--teal); border-color:var(--teal); font-weight:700; }
+.assurance-module .credential-checks { padding:0 18px; }
+.assurance-module .credential-check { padding:18px 0; border-bottom:1px solid var(--line); display:grid; gap:10px; }
+.assurance-module .credential-check:last-child { border:0; }
+.assurance-module .credential-check > div:first-child { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.assurance-module .credential-check p { margin:0; overflow-wrap:anywhere; color:var(--muted); font-size:12px; }
+.assurance-module .credential-check .head-actions { justify-content:flex-end; }
+.assurance-module .credential-actions { display:grid; gap:14px; padding:18px; }
+.assurance-module .credential-actions p { margin:0; color:var(--muted); font-size:12px; line-height:1.6; }
+.assurance-module .credential-actions .credential-error { color:var(--red); }
+.assurance-module .credential-history { padding:8px 18px; max-height:420px; overflow:auto; }
+.assurance-module .credential-history > div { padding:12px 0; border-bottom:1px solid var(--line); }
+.assurance-module .credential-history time { color:var(--muted); font-size:11px; }
+.assurance-module .credential-history p { overflow-wrap:anywhere; }
+@media(max-width:800px) { .assurance-module .credential-workflow .two-col { grid-template-columns:1fr; } .assurance-module .credential-steps { flex-wrap:wrap; } }
+
+.assurance-module .eligibility-counts { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.assurance-module .eligibility-validation,.assurance-module .eligibility-dependency { border:1px solid var(--line); border-radius:7px; padding:14px; overflow-wrap:anywhere; }
+.assurance-module .eligibility-validation.has-issues { background:var(--redbg); color:var(--red); }
+.assurance-module .eligibility-validation.passed { background:var(--greenbg); color:var(--green); }
+.assurance-module .eligibility-validation ul { padding-left:20px; line-height:1.7; }
+.assurance-module .eligibility-workflow input:disabled { background:#f4f7f7; color:var(--muted); }
+@media(max-width:500px) { .assurance-module .eligibility-counts { grid-template-columns:1fr; } }
+
+.assurance-module .quality-measure { min-width:0; margin:0; padding:16px; border:1px solid var(--line); border-radius:8px; display:grid; gap:12px; }
+.assurance-module .quality-measure legend { padding:0 6px; font-weight:700; color:var(--teal); }
+.assurance-module .quality-workflow .credential-steps { flex-wrap:wrap; }
+.assurance-module .quality-workflow .credential-steps li { min-width:110px; }
+.assurance-module .quality-workflow input:disabled { background:#f4f7f7; color:var(--muted); }

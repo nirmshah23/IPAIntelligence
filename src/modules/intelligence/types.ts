@@ -1,4 +1,4 @@
-export type Page = "dashboard" | "analytics" | "providers" | "compliance" | "adequacy" | "dofr" | "referrals" | "facilities" | "actions" | "relations" | "workplans";
+export type Page = "dashboard" | "analytics" | "providers" | "compliance" | "adequacy" | "dofr" | "referrals" | "facilities" | "actions" | "relations" | "workplans" | "measurements";
 export type ProviderFilterPreset = "all" | "active-in-network" | "accepting-patients" | "attestations-due" | "pending-credentialing";
 export type ComplianceFilterPreset = "all" | "below-target" | "evaluated" | "improvement-plans";
 export type AdequacyFilterPreset = "gaps" | "providers-needed" | "member-impact" | "recruitment";
@@ -70,15 +70,14 @@ export type Action = {
   workPlanId?: string;
 };
 export type WorkTask = { id: string; name: string; owner: string; department: string; due: string; status: "Not Started" | "In Progress" | "Blocked" | "Awaiting Review" | "Completed" | "Cancelled"; dependency?: string; note?: string };
-export type WorkMilestone = { id: string; name: string; owner: string; due: string; status: "Upcoming" | "At Risk" | "Completed" | "Missed" };
-export type WorkKpi = { id: string; name: string; baseline: number; target: number; actual: number; unit: string; period: string; owner: string; status: "Not Yet Measured" | "On Track" | "At Risk" | "Target Met" | "Target Missed" };
-export type WorkRisk = { id: string; issue: string; impact: string; severity: "High" | "Medium" | "Low"; owner: string; due: string; decisionFrom?: string; status: "Open" | "Mitigating" | "Resolved" };
+export type WorkKpi = { measurementId?: string; direction?: "increase" | "decrease"; source?: string; id: string; name: string; baseline: number; target: number; actual: number; unit: string; period: string; owner: string; status: "Not Yet Measured" | "On Track" | "At Risk" | "Target Met" | "Target Missed" };
+export type WorkRisk = { type?: "Risk" | "Blocker" | "Decision"; id: string; issue: string; impact: string; severity: "High" | "Medium" | "Low"; owner: string; due: string; decisionFrom?: string; status: "Open" | "Mitigating" | "Resolved" };
 export type WorkPlan = {
   id: string; name: string; actionId?: string; objective: string; rationale: string; expectedResult: string; successCriteria: string;
   owner: string; department: string; supporting: string[]; sponsor: string; priority: Action["priority"]; start: string; due: string;
   status: "Draft" | "Ready to Start" | "In Progress" | "On Hold" | "Work Complete — Outcome Follow-up Pending" | "Completed" | "Cancelled";
   health: "On Track" | "At Risk" | "Blocked" | "Overdue"; progress: number; nextReview: string; template: string; lastUpdated: string;
-  tasks: WorkTask[]; milestones: WorkMilestone[]; kpis: WorkKpi[]; risks: WorkRisk[]; activity: { date: string; text: string; by: string }[];
+  tasks: WorkTask[]; kpis: WorkKpi[]; risks: WorkRisk[]; activity: { date: string; text: string; by: string }[];
 };
 
 

@@ -1,0 +1,7 @@
+.result-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 16px;color:#536975;font-size:11px;border-top:1px solid #e0e7e8;background:white}
+.result-pagination>div{display:flex;align-items:center;gap:12px}
+.result-pagination label{display:flex;align-items:center;gap:8px;margin:0;font-size:11px}
+.result-pagination select{width:auto;margin:0;padding:6px;border:1px solid #cfdcdf;border-radius:5px;background:white;color:inherit}
+.result-pagination button{border:1px solid #cfdcdf;border-radius:5px;padding:7px 12px;background:white;color:#117d77;cursor:pointer;font:inherit}
+.result-pagination button:disabled{opacity:.45;cursor:default}
+.result-pagination button:focus-visible,.result-pagination select:focus-visible{outline:2px solid #117d77;outline-offset:2px}
