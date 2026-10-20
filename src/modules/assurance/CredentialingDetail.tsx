@@ -1,3 +1,4 @@
+import { WorkflowHistory } from "./WorkflowHistory";
 import { useState } from "react";
 import type { Item } from "./types";
 
@@ -55,6 +56,6 @@ export function CredentialingDetail({ item, back, update }: Props) {
         {terminal && <><p>{workflow.stage === "Approved" ? "Credentialing completed with recorded evidence and committee approval." : "Case remains blocked pending remediation of the committee decision."}</p><button className="btn secondary" disabled={!note.trim()} onClick={() => { commit(`Case reopened: ${note.trim()}`, { execution: "In progress", verification: "Pending", next: "Revalidate credentials before resubmission" }, { stage: "Verification", checks: {} }); setNote(""); }}>Reopen for verification</button></>}
         {error && <p role="alert" className="credential-error">{error}</p>}
       </div></section></div>
-    <section className="card"><div className="card-head"><div><h2>Case activity & evidence history</h2><p>Actions recorded in this demo on this browser. No external verification service is connected.</p></div></div><div className="credential-history">{workflow.history.length ? workflow.history.map((event, index) => <div key={`${event.at}-${index}`}><time>{new Date(event.at).toLocaleString()}</time><p>{event.text}</p></div>) : <p>No review actions recorded. Start by verifying the source evidence.</p>}</div></section>
+    <section className="card"><div className="card-head"><div><h2>Case activity & evidence history</h2><p>Actions recorded in this demo on this browser. No external verification service is connected.</p></div></div><WorkflowHistory entries={workflow.history} /></section>
   </div>;
 }

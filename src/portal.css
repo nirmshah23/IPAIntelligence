@@ -1,0 +1,169 @@
+/* Common presentation for both modules. Keep structural layouts module-specific. */
+.workspace {
+  --ink: #172321;
+  --muted: #667572;
+  --line: #dfe7e4;
+  --surface: #fff;
+  --canvas: #f4f7f6;
+  --nav: #123b35;
+  --nav-light: #1c5149;
+  --teal: #087d6c;
+  --teal-dark: #075f54;
+  --teal-soft: #e5f4f0;
+  --blue: #3476a8;
+  --blue-soft: #eaf2f8;
+  --amber: #a86708;
+  --amber-soft: #fff3dc;
+  --red: #b5473e;
+  --red-soft: #fbeae8;
+  --shadow: 0 1px 2px rgb(16 45 39 / 5%), 0 8px 24px rgb(16 45 39 / 4%);
+  color: var(--ink);
+  background: var(--canvas);
+}
+
+/* Module roots inherit tokens rather than maintaining separate palettes. */
+.workspace :is(.intelligence-module, .assurance-module, .workflow-page) {
+  --ink: inherit;
+  --muted: inherit;
+  --line: inherit;
+  --surface: inherit;
+  --canvas: inherit;
+  --nav: inherit;
+  --nav-light: inherit;
+  --teal: inherit;
+  --teal-dark: inherit;
+  --teal-soft: inherit;
+  --blue: inherit;
+  --blue-soft: inherit;
+  --amber: inherit;
+  --amber-soft: inherit;
+  --red: inherit;
+  --red-soft: inherit;
+  --shadow: inherit;
+  --bg: var(--canvas);
+  --card: var(--surface);
+  --nav2: var(--nav-light);
+  --teal2: var(--teal-soft);
+  --redbg: var(--red-soft);
+  --amberbg: var(--amber-soft);
+  --bluebg: var(--blue-soft);
+  --green: #176e5e;
+  --greenbg: var(--teal-soft);
+  color: var(--ink);
+  font-size: 13px;
+  background: var(--canvas);
+}
+
+.workspace .intelligence-module main,
+.workspace .assurance-module .content {
+  padding: 31px 30px 50px;
+  max-width: 1600px;
+  margin-inline: auto;
+  width: 100%;
+}
+.workspace .assurance-module .crumbs { display: none; }
+.workspace .intelligence-module .topbar,
+.workspace .assurance-module .app > main > header {
+  height: 65px;
+  padding-inline: 30px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.workspace :is(.page-header, .page-head) {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  margin-bottom: 25px;
+}
+.workspace :is(.page-header, .page-head) h1 {
+  margin: 0 0 6px;
+  font-size: 28px;
+  line-height: 1.15;
+  letter-spacing: -.035em;
+}
+.workspace :is(.page-header, .page-head) p { margin: 0; font-size: 13px; color: var(--muted); }
+.workspace .eyebrow { margin: 0 0 5px; color: var(--teal); font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.workspace .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 7px 13px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.workspace :is(.btn-primary, .assurance-module .btn:not(.secondary):not(.text):not(.danger)) { background: var(--teal); color: white; }
+.workspace :is(.btn-secondary, .btn.secondary) { background: white; border-color: #cdd9d5; color: var(--ink); }
+.workspace :is(.btn-ghost, .btn.text) { background: transparent; color: var(--teal); padding-inline: 7px; }
+.workspace :is(.btn-danger, .btn.danger) { background: var(--red); color: white; }
+.workspace :is(.btn-secondary, .btn.secondary):hover { border-color: var(--teal); color: var(--teal); }
+.workspace button:disabled { opacity: .45; cursor: not-allowed; }
+.workspace :is(button, a, input, select, textarea):focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.workspace :is(input[type=checkbox], input[type=radio]) { accent-color: var(--teal); }
+.workspace :is(.card, .form-card, .calendar-card) { border-color: var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+.workspace .card-head { gap: 15px; align-items: flex-start; border-color: var(--line); }
+.workspace .card-head h2 { font-size: 16px; letter-spacing: -.015em; margin: 0 0 3px; }
+.workspace .card-head p { font-size: 11px; color: var(--muted); }
+.workspace :is(.stat, .kpi) { border-radius: 9px; padding: 15px 16px 14px; box-shadow: var(--shadow); }
+.workspace .kpi span { font-size: 11px; color: var(--muted); }
+.workspace .kpi b { font-size: 25px; letter-spacing: -.04em; margin: 6px 0 3px; }
+.workspace .kpi small { font-size: 10px; color: var(--muted); }
+.workspace :is(.badge, .chip) { font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 20px; }
+.workspace :is(.chip.green, .badge-good) { color: #176e5e; background: var(--teal-soft); }
+.workspace :is(.chip.amber, .badge-warn) { color: #895200; background: var(--amber-soft); }
+.workspace :is(.chip.red, .badge-bad) { color: #9b3d36; background: var(--red-soft); }
+.workspace :is(.chip.blue, .badge-info) { color: #2d668f; background: var(--blue-soft); }
+.workspace th { background: #f7f9f8; color: var(--muted); font-size: 9px; letter-spacing: .06em; padding: 10px 13px; }
+.workspace td { padding: 11px 13px; font-size: 11px; border-color: var(--line); color: var(--ink); }
+.workspace td strong { color: var(--ink); }
+.workspace td small { color: var(--muted); }
+.workspace .table-wrap { position: relative; }
+.workspace .assurance-module :is(.icon-btn, .help) { border-radius: 8px; color: var(--muted); }
+.workspace :is(.control, .exception-control, .filterbar label, .assurance-module .form-grid label) { color: var(--ink); font-size: 11px; }
+.workspace :is(.control, .exception-control, .filterbar label, .assurance-module .form-grid label) :is(input:not([type=checkbox]):not([type=radio]), select, textarea),
+.workspace :is(.filterbar, .report-filters) > select {
+  min-height: 34px;
+  border: 1px solid #cdd9d5;
+  border-radius: 7px;
+  padding: 7px 10px;
+  background: white;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 400;
+}
+.workspace :is(.filterbar, .report-filters, .head-actions, .modal-actions, .form-actions) { flex-wrap: wrap; gap: 9px; }
+.workspace :is(.tabs, .action-tabs) { overflow-x: auto; }
+.workspace :is(.tabs, .action-tabs) button { font-size: 11px; font-weight: 700; white-space: nowrap; }
+.workspace .toast { top: auto; bottom: 24px; right: 24px; z-index: 100; background: #173f38; border-radius: 8px; font-size: 11px; }
+.workspace .result-pagination { color: var(--muted); border-color: var(--line); }
+.workspace .result-pagination :is(button, select) { min-height: 34px; border-color: #cdd9d5; border-radius: 7px; }
+.workspace .result-pagination button { color: var(--teal); }
+
+@media (max-width: 1000px) {
+  .workspace .assurance-module :is(.two-col, .two-col.wide-left, .exception-layout) { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 800px) {
+  .workspace .intelligence-module main,
+  .workspace .assurance-module .content,
+  .workspace .assurance-module .content:has(> .workflow-page) { padding: 24px 16px 40px; }
+  .workspace .intelligence-module .topbar,
+  .workspace .assurance-module .app > main > header { padding-inline: 16px; }
+  .workspace :is(.page-header, .page-head) { align-items: flex-start; flex-direction: column; gap: 14px; }
+  .workspace .assurance-module .editor { grid-template-columns: minmax(0, 1fr); }
+  .workspace .assurance-module .steps { flex-direction: row; overflow-x: auto; }
+  .workspace .assurance-module .steps button { flex-shrink: 0; }
+  .workspace .assurance-module :is(.form-grid, .choice-grid) { grid-template-columns: minmax(0, 1fr); }
+  .workspace .assurance-module .form-grid .span2 { grid-column: 1 / -1; }
+  .workspace .assurance-module .report-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .workspace .calendar-card { overflow-x: auto; }
+  .workspace .calendar-card :is(.week, .month) { min-width: 630px; }
+}
+@media (max-width: 420px) {
+  .workspace .assurance-module .report-kpis { grid-template-columns: minmax(0, 1fr); }
+  .workspace .result-pagination > div { flex-wrap: wrap; }
+}

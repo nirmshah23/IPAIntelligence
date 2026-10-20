@@ -1,3 +1,4 @@
+import { WorkflowHistory } from "./WorkflowHistory";
 import { useState } from "react";
 import type { Item } from "./types";
 import { isEncounter, qualityIssues, qualityTransition, type QualityPacket } from "./quality";
@@ -64,6 +65,6 @@ export function QualityDetail({ item, back, update }: Props) {
         {["Ready to submit", "Rejected", "Accepted"].includes(state.stage) && <><label className="exception-control">{state.stage === "Accepted" ? "Reason for reopening" : "Correction plan"}<textarea value={reason} onChange={event => setReason(event.target.value)} /></label><button className="btn secondary" disabled={!reason.trim()} onClick={() => act({ type: "revise", reason })}>{state.stage === "Accepted" ? "Reopen quality obligation" : "Prepare corrected packet"}</button></>}
         {error && <p className="credential-error" role="alert">{error}</p>}
       </div></section></div>
-    <section className="card"><div className="card-head"><div><h2>Activity & evidence history</h2><p>Recorded in this browser. Source validation, reviewer identity, and payer responses are manually entered; external services are not connected.</p></div></div><div className="credential-history">{state.history.length ? state.history.map((event, index) => <div key={`${event.at}-${index}`}><time>{new Date(event.at).toLocaleString()}</time><p>{event.text}</p></div>) : <p>No actions recorded. Add the reporting data and source references to begin.</p>}</div></section>
+    <section className="card"><div className="card-head"><div><h2>Activity & evidence history</h2><p>Recorded in this browser. Source validation, reviewer identity, and payer responses are manually entered; external services are not connected.</p></div></div><WorkflowHistory entries={state.history} /></section>
   </div>;
 }

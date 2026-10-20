@@ -2,6 +2,11 @@ export type Page = "overview" | "queue" | "detail" | "exceptions" | "calendar" |
 export type Item = {
   id: string; title: string; category: string; payer: string; period: string; due: string; owner: string;
   execution: string; deadline: string; verification: string; risk: string; next: string; impact?: string;
+  workflow?: {
+    stage: "Preparation" | "Review" | "Completed" | "Rejected";
+    evidence: Record<string, { reference: string; passed: boolean }>;
+    history: { at: string; text: string }[];
+  };
   credentialing?: {
     stage: "Verification" | "Committee review" | "Approved" | "Denied";
     checks: Record<string, { result: "Passed" | "Failed"; reference: string; at: string }>;

@@ -1,3 +1,4 @@
+import { WorkflowHistory } from "./WorkflowHistory";
 import { useState } from "react";
 import type { Item } from "./types";
 import { eligibilityTransition, fileIssues, type EligibilityFile } from "./eligibility";
@@ -50,6 +51,6 @@ export function EligibilityDetail({ item, back, update }: Props) {
       {error && <p className="credential-error" role="alert">{error}</p>}
       {item.id === "ELG-2026-04" && <div className="eligibility-dependency"><b>Dependent work: ROS-2026-04</b><p>{state.stage === "Accepted" ? "Eligibility acceptance releases provider roster reconciliation for processing." : "Provider roster reconciliation stays blocked until payer acceptance is recorded."}</p></div>}
     </div></section></div>
-    <section className="card"><div className="card-head"><div><h2>Activity & evidence history</h2><p>Manually recorded results saved in this browser. File validation and payer transmission services are not connected.</p></div></div><div className="credential-history">{state.history.length ? state.history.map((event, index) => <div key={`${event.at}-${index}`}><time>{new Date(event.at).toLocaleString()}</time><p>{event.text}</p></div>) : <p>No actions recorded. Prepare the file and record its validation results.</p>}</div></section>
+    <section className="card"><div className="card-head"><div><h2>Activity & evidence history</h2><p>Manually recorded results saved in this browser. File validation and payer transmission services are not connected.</p></div></div><WorkflowHistory entries={state.history} /></section>
   </div>;
 }

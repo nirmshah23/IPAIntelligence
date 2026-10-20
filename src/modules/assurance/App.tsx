@@ -1,3 +1,5 @@
+import { WorkflowDetail } from "./WorkflowDetail";
+import { initializeWorkflow, workflowDefinitions } from "./workflows";
 import { PaginatedTable, PaginatedList } from "../../components/PaginatedResults";
 import { useEffect, useRef, useMemo, useState } from "react";
 import { QualityDetail } from "./QualityDetail";
@@ -62,7 +64,7 @@ export default function App({ page, setPage }: { page: Page; setPage: (page: Pag
     const initialItems = seed.map(item => item.category === "Credentialing" ? {
       ...item, execution: "In progress", verification: "Pending",
       next: item.owner === "Unassigned" ? "Assign owner and verify credentialing evidence" : "Verify credentialing evidence",
-    } : initializeQuality(initializeEligibility(item)));
+    } : initializeWorkflow(initializeQuality(initializeEligibility(item))));
     let restored = initialItems;
     try {
       const saved: unknown = JSON.parse(localStorage.getItem("quickcap-credentialing-v1") || "{}");
@@ -102,6 +104,19 @@ export default function App({ page, setPage }: { page: Page; setPage: (page: Pag
         });
       }
     } catch { /* Keep initial quality cases if browser storage is unavailable. */ }
+    try {
+      const saved = JSON.parse(localStorage.getItem("quickcap-workflows-v1") || "{}");
+      restored = restored.map(item => {
+        const entry = saved?.[item.id];
+        const state = entry?.workflow;
+        return workflowDefinitions[item.category] && state &&
+          ["Preparation", "Review", "Completed", "Rejected"].includes(state.stage) &&
+          state.evidence && typeof state.evidence === "object" && !Array.isArray(state.evidence) &&
+          Object.values(state.evidence).every((value: any) => value && typeof value.reference === "string" && typeof value.passed === "boolean") &&
+          Array.isArray(state.history) && state.history.every((event: any) => typeof event?.at === "string" && typeof event?.text === "string") && typeof entry.owner === "string"
+          ? { ...item, ...entry, id: item.id, category: item.category } : item;
+      });
+    } catch { /* Retain initial workflows if storage is unavailable. */ }
     return syncEligibilityDependency(restored);
   });
   useEffect(() => {
@@ -115,6 +130,10 @@ export default function App({ page, setPage }: { page: Page; setPage: (page: Pag
   useEffect(() => {
     try { localStorage.setItem("quickcap-quality-v1", JSON.stringify(Object.fromEntries(items.filter(item => item.quality).map(item => [item.id, item])))); }
     catch { setToast("Browser storage unavailable. Quality changes will last for this session only."); }
+  }, [items]);
+  useEffect(() => {
+    try { localStorage.setItem("quickcap-workflows-v1", JSON.stringify(Object.fromEntries(items.filter(item => item.workflow).map(item => [item.id, item])))); }
+    catch { setToast("Browser storage unavailable. Workflow changes will last for this session only."); }
   }, [items]);
   const [selected,setSelected] = useState(seed[1].id);
   const [filter,setFilter] = useState("Open");
@@ -145,13 +164,15 @@ export default function App({ page, setPage }: { page: Page; setPage: (page: Pag
       <div className="content">
         <div className="crumbs"><span>{page === "reports" ? "Reports & Analytics" : "Operational Compliance"}</span><b>/</b><span>{pageTitle[page]}</span></div>
         {toast&&<div className="toast"><span>✓</span>{toast}</div>}
+        <div className={page === "overview" ? undefined : "workflow-page obligation-portal"}>
         {page==="overview"&&<Overview items={items} open={open} go={(p,f)=>{setPage(p);setFilter(f||"Open")}}/>}
         {page==="queue"&&<WorkQueue items={items} scope={filter} setScope={setFilter} open={open}/>}
-        {page==="detail"&&(current.category==="Credentialing" ? <CredentialingDetail key={current.id} item={current} update={update} back={()=>setPage("queue")}/> : current.category==="Eligibility" ? <EligibilityDetail key={current.id} item={current} update={update} back={()=>setPage("queue")}/> : isQuality(current) ? <QualityDetail key={current.id} item={current} update={update} back={()=>setPage("queue")}/> : <Detail item={current} tab={detailTab} setTab={setDetailTab} update={update} flash={flash}/>)}
+        {page==="detail"&&(current.category==="Credentialing" ? <CredentialingDetail key={current.id} item={current} update={update} back={()=>setPage("queue")}/> : current.category==="Eligibility" ? <EligibilityDetail key={current.id} item={current} update={update} back={()=>setPage("queue")}/> : isQuality(current) ? <QualityDetail key={current.id} item={current} update={update} back={()=>setPage("queue")}/> : workflowDefinitions[current.category] ? <WorkflowDetail key={current.id} item={current} update={update} back={()=>setPage("queue")}/> : <Detail item={current} tab={detailTab} setTab={setDetailTab} update={update} flash={flash}/>)}
         {page==="exceptions"&&<Exceptions items={items} ack={ack} setAck={setAck} remediation={remediation} setRemediation={setRemediation} update={update} open={open} flash={flash}/>}
         {page==="calendar"&&<Calendar items={items} activated={activated} open={open}/>}
         {page==="editor"&&<Editor schedule={schedule} setSchedule={setSchedule} step={step} setStep={setStep} title={newTitle} setTitle={setNewTitle} owner={newOwner} setOwner={setNewOwner} activated={activated} activate={()=>{if(scheduleError(schedule))return;setActivated(true);const dates=occurrenceDates(schedule);setItems(x=>[...x,...dates.map((date,n)=>({id:`CMP-NEW-${n+1}`,title:newTitle,category:"Compliance",payer:"All plans",period:displayDate(date),due:`${displayDate(date)} ? ${schedule.cutoff} ${schedule.timezone}`,owner:newOwner,execution:"Not started",deadline:"Upcoming",verification:"Pending",risk:"Medium",next:"Prepare source report"}))]);flash(schedule.type==="Event-triggered"?"Definition activated. Occurrences will be due after the configured event; event ingestion is not connected in this demo.":`Definition activated and ${dates.length} future occurrences generated`)}}/>}
         {page==="reports"&&<Reports items={items}/>}
+        </div>
       </div>
     </main>
   </div>
@@ -195,7 +216,7 @@ function WorkQueue({items,open,scope,setScope}:{items:Item[],open:(id:string)=>v
     <div className="filterbar"><label>View<select value={scope} onChange={e=>setScope(e.target.value)}>{scopes.map(value=><option key={value}>{value}</option>)}</select></label>
       {[{label:"Category",value:category,set:setCategory,options:[...new Set(items.map(i=>i.category))]},{label:"Owner",value:owner,set:setOwner,options:[...new Set(items.map(i=>i.owner))]},{label:"Deadline",value:deadline,set:setDeadline,options:["Upcoming","On track","At risk","Overdue"]},{label:"Verification",value:verification,set:setVerification,options:["Pending","Failed","Verified","Not required"]},{label:"Risk",value:risk,set:setRisk,options:["Critical","High","Medium","Low"]}].map(field=><label key={field.label}>{field.label}<select value={field.value} onChange={e=>field.set(e.target.value)}><option>All</option>{field.options.map(value=><option key={value}>{value}</option>)}</select></label>)}
       <Button kind="secondary" onClick={()=>{setScope("All");setCategory("All");setOwner("All");setDeadline("All");setVerification("All");setRisk("All")}}>Clear filters</Button><span>{queue.length} obligations</span></div>
-    <Section title="Obligations" sub="Prioritized by deadline, verification failures, blockers, and risk"><div className="table-wrap"><PaginatedTable><thead><tr><th>Obligation</th><th>Category / payer</th><th>Next required action</th><th>Owner</th><th>Due date</th><th>Execution</th><th>Deadline</th><th>Verification</th><th>Risk</th><th>Action</th></tr></thead><tbody>{queue.map(item=><tr key={item.id}><td><strong>{item.title}</strong><small>{item.id} ? {item.period}</small></td><td>{item.category}<small>{item.payer}</small></td><td>{item.next}{item.category==="Credentialing"&&<small>{item.credentialing?.stage || "Verification"}</small>}{item.eligibility&&<small>{item.eligibility.stage}</small>}{item.quality&&<small>{item.quality.stage}</small>}</td><td>{item.owner}</td><td>{item.due}</td><td><Chip>{item.execution}</Chip></td><td><Chip>{item.deadline}</Chip></td><td><Chip>{item.verification}</Chip></td><td><span className={`risk ${item.risk.toLowerCase()}`}>{item.risk}</span></td><td><Button kind="secondary" onClick={()=>open(item.id)}>Review</Button></td></tr>)}</tbody></PaginatedTable>{!queue.length&&<div className="empty"><Icon name="search" size={32}/><h3>No obligations found</h3><p>Try clearing filters.</p></div>}</div></Section>
+    <Section title="Obligations" sub="Prioritized by deadline, verification failures, blockers, and risk"><div className="table-wrap"><PaginatedTable><thead><tr><th>Obligation</th><th>Category / payer</th><th>Next required action</th><th>Owner</th><th>Due date</th><th>Execution</th><th>Deadline</th><th>Verification</th><th>Risk</th><th>Action</th></tr></thead><tbody>{queue.map(item=><tr key={item.id}><td><strong>{item.title}</strong><small>{item.id} ? {item.period}</small></td><td>{item.category}<small>{item.payer}</small></td><td>{item.next}{item.category==="Credentialing"&&<small>{item.credentialing?.stage || "Verification"}</small>}{item.eligibility&&<small>{item.eligibility.stage}</small>}{item.quality&&<small>{item.quality.stage}</small>}{workflowDefinitions[item.category]&&<small>{item.workflow?.stage || "Preparation"}</small>}</td><td>{item.owner}</td><td>{item.due}</td><td><Chip>{item.execution}</Chip></td><td><Chip>{item.deadline}</Chip></td><td><Chip>{item.verification}</Chip></td><td><span className={`risk ${item.risk.toLowerCase()}`}>{item.risk}</span></td><td><Button kind="secondary" onClick={()=>open(item.id)}>Review</Button></td></tr>)}</tbody></PaginatedTable>{!queue.length&&<div className="empty"><Icon name="search" size={32}/><h3>No obligations found</h3><p>Try clearing filters.</p></div>}</div></Section>
   </>;
 }
 

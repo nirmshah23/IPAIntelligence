@@ -86,3 +86,37 @@ button { cursor: pointer; }
 @media(max-width:420px) {
   .workspace .workflow-page :is(.stat-grid,.kpi-grid) { grid-template-columns:1fr; }
 }
+
+/* All obligation categories use the shared portal controls and spacing. */
+.workspace .obligation-portal .btn { white-space:normal; line-height:1.4; padding-block:7px; }
+.workspace .obligation-portal .btn:not(.secondary):not(.text):not(.danger) { background:var(--teal); color:white; }
+.workspace .obligation-portal .btn:disabled { opacity:.45; cursor:not-allowed; }
+.workspace .obligation-portal .credential-actions > .btn { justify-self:start; max-width:100%; }
+.workspace .obligation-portal :is(.head-actions,.button-row) { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:9px; }
+.workspace .obligation-portal .exception-control { display:flex; flex-direction:column; gap:6px; margin:0; color:var(--ink); font-size:11px; font-weight:600; }
+.workspace .obligation-portal :is(.exception-control,.filterbar label,.form-grid label) :is(input,select,textarea) { width:100%; min-height:34px; margin:0; border:1px solid #cdd9d5; border-radius:7px; padding:8px 10px; background:white; color:var(--ink); font-size:12px; font-weight:400; }
+.workspace .obligation-portal :is(.exception-control,.form-grid label) textarea { min-height:110px; resize:vertical; }
+.workspace .obligation-portal :is(input,select,textarea):disabled { background:#f4f7f7; color:var(--muted); cursor:not-allowed; }
+.workspace .obligation-portal :is(button,input,select,textarea):focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
+.workspace .obligation-portal .exception-check { display:flex; align-items:flex-start; gap:9px; margin:0; font-size:12px; line-height:1.5; }
+.workspace .obligation-portal .exception-check input { flex:0 0 16px; width:16px; height:16px; margin:2px 0 0; accent-color:var(--teal); }
+.workspace .obligation-portal .filterbar { flex-wrap:wrap; align-items:flex-end; gap:12px; padding:13px; }
+.workspace .obligation-portal .filterbar label { display:grid; gap:6px; margin:0; font-size:11px; }
+.workspace .obligation-portal :is(.credential-actions,.credential-checks) { min-width:0; }
+.workspace .obligation-portal .quality-measure { min-width:0; }
+.workspace .obligation-portal .quality-measure legend { font-size:12px; }
+.workspace .obligation-portal td { vertical-align:middle; }
+.workspace .obligation-portal .workflow-history tbody tr { cursor:default; }
+.workspace .obligation-portal .workflow-history td { overflow-wrap:anywhere; }
+.workspace .obligation-portal .workflow-history td:first-child { width:180px; }
+.workspace .obligation-portal .status-strip > div { gap:12px; flex-wrap:wrap; }
+.workspace .obligation-portal .exception-modal-head { padding:20px 22px; }
+.workspace .obligation-portal .exception-modal-body { padding:20px 22px; gap:15px; }
+.workspace .obligation-portal .exception-modal-actions { padding:15px 22px; gap:9px; }
+@media(max-width:600px) {
+  .workspace .obligation-portal .status-strip { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .workspace .obligation-portal .credential-steps { flex-wrap:wrap; }
+  .workspace .obligation-portal .credential-steps li { flex:1 1 120px; }
+  .workspace .obligation-portal .filterbar label { flex:1 1 140px; }
+  .workspace .obligation-portal .exception-modal { width:calc(100% - 24px); max-height:calc(100dvh - 24px); }
+}
