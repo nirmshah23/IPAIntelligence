@@ -1,8 +1,9 @@
+import { ActionHistoryContext, LatestAction } from "./LatestAction";
 import { seedDisenrollmentActions } from "./disenrollmentData";
 import { Disenrollments } from "./Disenrollments";
 import { RelationsDashboard, matchesTaskFilter, taskFilterLabel, taskToday } from "./RelationsDashboard";
 import { actionDateToday, actionTimeliness, timelinessBuckets } from "./actionTimeliness";
-import { TaskForm } from "./TaskForm";
+import { TaskForm, taskNotes } from "./TaskForm";
 import { RiskForm, WorkPlanRisks, riskType } from "./WorkPlanRisks";
 import { seedActionCenter, mergeActionCenterSeed } from "./seedActions";
 import { WorkPlanOverview } from "./WorkPlanOverview";
@@ -31,7 +32,6 @@ const nav: { id: Page; label: string; short: string }[] = [
   { id: "disenrollments", label: "Disenrollments", short: "DE" },
   { id: "compliance", label: "Preventive Care", short: "PC" },
   { id: "adequacy", label: "Network Adequacy", short: "NA" },
-  { id: "dofr", label: "DOFR Expansion", short: "DR" },
   { id: "referrals", label: "OON Referrals", short: "OR" },
   { id: "facilities", label: "Facilities", short: "FQ" },
   { id: "actions", label: "Action Center", short: "AT" },
@@ -314,13 +314,13 @@ export default function App({ page, setPage, navigation = {}, analyticsView = "p
   useEffect(() => localStorage.setItem("ipa-work-plans", JSON.stringify(workPlans)), [workPlans]);
   useEffect(() => { if (!toast) return; const id = window.setTimeout(() => setToast(""), 2800); return () => clearTimeout(id); }, [toast]);
 
-  const addAction = (category: string, subject: string, reason: string, priority: Action["priority"] = "High") => {
+  const addAction = (category: string, subject: string, reason: string, priority: Action["priority"] = "High", context: Pick<Action, "providerId" | "evidence" | "expectedResult"> = {}) => {
     if (actions.some((a) => a.subject === subject && a.category === category && !["Completed", "Dismissed"].includes(a.status))) {
       setToast("An open action already exists for this issue.");
       return;
     }
     const due = new Date(); due.setDate(due.getDate() + 21);
-    setActions((current) => [{ id: `ACT-${1042 + current.length}`, category, subject, reason, owner: "Unassigned", priority, due: due.toISOString().slice(0, 10), status: "New" }, ...current]);
+    setActions((current) => [{ id: `ACT-${1042 + current.length}`, category, subject, reason, createdAt: new Date().toISOString(), owner: "Unassigned", priority, due: due.toISOString().slice(0, 10), status: "New", ...context }, ...current]);
     setToast("Action added to the tracker.");
   };
   const go = (next: Page) => {
@@ -386,19 +386,18 @@ export default function App({ page, setPage, navigation = {}, analyticsView = "p
           {page !== "relations" && page !== "workplans" && page !== "measurements" && <label className="period period-picker"><span>Reporting period</span><select value={reportingPeriod} onChange={(event) => setReportingPeriod(event.target.value)}>{reportingPeriods.map((period) => <option value={period.id} key={period.id}>{period.label}</option>)}</select></label>}
           <div className="top-actions"><button className="icon-btn" title="Help" onClick={() => window.alert("This prototype uses fictional healthcare data. Select a module from the sidebar to explore its workflow.")}>?</button><div className="profile"><span>MO</span><div><b>Maya Ortiz</b><small>Network Administrator</small></div></div></div>
         </header>
-        <main>
-          {page === "disenrollments" && <Disenrollments providers={providers} period={reportingPeriod} actions={actions} openActions={providerId => setPage("actions", { filter: new URLSearchParams({ category: "Disenrollments", ...(providerId ? { providerId } : {}) }).toString() })} />}
+        <main><ActionHistoryContext.Provider value={actions}>
+          {page === "disenrollments" && <Disenrollments providers={providers} period={reportingPeriod} addAction={(subject, reason, priority, context) => addAction("Disenrollments", subject, reason, priority, context)} />}
           {page === "dashboard" && <Dashboard actions={actions} onOpenActions={(filter) => setPage("actions", { filter })} />}
           {page === "analytics" && <Analytics view={analyticsView} providers={providers} period={reportingPeriod} complianceTarget={complianceTarget} />}
           {page === "providers" && <Providers providers={providers} period={reportingPeriod} preset={providerPreset} setProviders={setProviders} setToast={setToast} />}
           {page === "compliance" && <Compliance providers={providers} period={reportingPeriod} preset={compliancePreset} target={complianceTarget} setTarget={setComplianceTarget} addAction={addAction} />}
-          {page === "adequacy" && <Adequacy providers={providers} preset={adequacyPreset} threshold={ratioTarget} setThreshold={setRatioTarget} addAction={addAction} />}
-          {page === "dofr" && <Dofr addAction={addAction} go={go} />}
+          {(page === "adequacy" || page === "dofr") && <><Adequacy providers={providers} preset={adequacyPreset} threshold={ratioTarget} setThreshold={setRatioTarget} addAction={addAction} /><Dofr addAction={addAction} /></>}
           {page === "referrals" && <Referrals providers={providers} preset={referralPreset} addAction={addAction} />}
           {page === "facilities" && <Facilities providers={providers} period={reportingPeriod} addAction={addAction} />}
           {page === "actions" && <Actions filter={navigation.filter} onClearFilter={() => setPage("actions")} actions={actions} setActions={setActions} workPlans={workPlans} focusId={actionFocusId} clearFocus={() => setActionFocusId(null)} onInitiate={(action) => setSetupSource(action.id)} onOpenPlan={openWorkPlan} />}
           {(page === "relations" || page === "workplans" || page === "measurements") && <ProviderRelations view={page} filter={navigation.filter} onOpenRegister={(filter) => setPage("workplans", { filter })} workPlans={workPlans} setWorkPlans={setWorkPlans} actions={actions} selectedId={selectedWorkPlanId} setSelectedId={setSelectedWorkPlanId} openSourceAction={openSourceAction} onCreate={() => setSetupSource("direct")} />}
-        </main>
+        </ActionHistoryContext.Provider></main>
       </div>
       {sidebarOpen && <button className="scrim" onClick={() => setSidebarOpen(false)} aria-label="Close navigation" />}
       {toast && <div className="toast">{toast}</div>}
@@ -432,24 +431,16 @@ function Dashboard({ actions, onOpenActions }: { actions: Action[]; onOpenAction
         });
         const rows = [...counts.entries()];
         if (!group.values) rows.sort(([a], [b]) => a.localeCompare(b));
-        return <section className="table-card" key={group.key} aria-labelledby={`action-group-${group.key}`}>
+        return <section className={`table-card ${group.key === "owner" ? "owner-timeliness-matrix" : ""}`} key={group.key} aria-labelledby={`action-group-${group.key}`}>
           <div className="card-head"><h2 id={`action-group-${group.key}`}>{group.title}</h2></div>
           <div className="table-wrap"><table>
-            <thead><tr><th scope="col">{group.label}</th><th scope="col" className="action-count">Action count</th></tr></thead>
-            <tbody>{rows.map(([value, count]) => <tr key={value}><th scope="row">{value}</th><td className="action-count"><button className="action-count-link" onClick={() => openFiltered({ [group.key]: value })} aria-label={`View ${count} actions for ${group.label}: ${value}`}>{count}</button></td></tr>)}</tbody>
-            <tfoot><tr><th scope="row">Total</th><td className="action-count"><button className="action-count-link" onClick={() => openFiltered()} aria-label="View all active actions">{activeActions.length}</button></td></tr></tfoot>
+            <thead><tr><th scope="col">{group.label}</th>{group.key === "owner" && timelinessBuckets.map(bucket => <th scope="col" className="action-count" key={bucket.id}>{bucket.label}</th>)}<th scope="col" className="action-count">{group.key === "owner" ? "Total" : "Action count"}</th></tr></thead>
+            <tbody>{rows.map(([value, count]) => <tr key={value}><th scope="row">{value}</th>{group.key === "owner" && timelinessBuckets.map(bucket => <td className="action-count" key={bucket.id}>{countLink(activeActions.filter(action => (action.owner?.trim() || "Unassigned") === value && actionTimeliness(action.due, today) === bucket.id).length, { owner: value, timeliness: bucket.id, asOf: today }, `${value}, ${bucket.label}`)}</td>)}<td className="action-count"><button className="action-count-link" onClick={() => openFiltered({ [group.key]: value })} aria-label={`View ${count} actions for ${group.label}: ${value}`}>{count}</button></td></tr>)}</tbody>
+            <tfoot><tr><th scope="row">Total</th>{group.key === "owner" && timelinessBuckets.map(bucket => <td className="action-count" key={bucket.id}>{countLink(activeActions.filter(action => actionTimeliness(action.due, today) === bucket.id).length, { timeliness: bucket.id, asOf: today }, bucket.label)}</td>)}<td className="action-count"><button className="action-count-link" onClick={() => openFiltered()} aria-label="View all active actions">{activeActions.length}</button></td></tr></tfoot>
           </table></div>
           {!rows.length && <Empty title="No actions yet" message="Actions will appear here when added to Action Center." />}
         </section>;
       })}
-      <section className="table-card" aria-labelledby="action-timeliness">
-        <div className="card-head"><div><h2 id="action-timeliness">Actions by timeliness</h2><p>Target dates as of {today} (India time). Next 7 days excludes today.</p></div></div>
-        <div className="table-wrap"><table>
-          <thead><tr><th scope="col">Target date</th><th scope="col" className="action-count">Action count</th></tr></thead>
-          <tbody>{timelinessBuckets.map(bucket => <tr key={bucket.id}><th scope="row">{bucket.label}</th><td className="action-count">{countLink(activeActions.filter(action => actionTimeliness(action.due, today) === bucket.id).length, { timeliness: bucket.id, asOf: today }, bucket.label)}</td></tr>)}</tbody>
-          <tfoot><tr><th scope="row">Total</th><td className="action-count">{countLink(activeActions.length, {}, "all")}</td></tr></tfoot>
-        </table></div>
-      </section>
       <section className="table-card action-priority-matrix" aria-labelledby="action-status-priority">
         <div className="card-head"><h2 id="action-status-priority">Actions by status and priority</h2></div>
         <div className="table-wrap"><table>
@@ -492,6 +483,7 @@ function Analytics({ providers, period, complianceTarget, view }: { providers: P
       </>}
     </div>
     <div className="dashboard-grid analytics-grid">
+      {view === "membership" && <FacilityClassificationSummary providers={providers} period={period} />}
       {view === "membership" && <section className="card wide"><div className="card-head"><div><h2>Preventive care trend</h2><p>IPA performance across core measures</p></div><Badge tone={avgCompliance >= complianceTarget ? "good" : "warn"}>{avgCompliance >= complianceTarget ? "On target" : `${complianceTarget - avgCompliance} pts below target`}</Badge></div>
         <div className="trend-chart"><div className="chart-labels"><span>90%</span><span>80%</span><span>70%</span><span>60%</span></div><div className="trend-bars">{complianceTrend.map((item) => <div key={item.label}><span style={{ height: `${item.value}%` }}><b>{item.value}%</b></span><small>{item.label}</small></div>)}</div></div>
       </section>}
@@ -664,7 +656,7 @@ function DetailPanel({ provider, period, onClose, onEdit }: { provider: Provider
     <div className="panel-footer"><Button variant="secondary" onClick={onClose}>Close</Button><Button onClick={onEdit}>Edit record</Button></div></aside></div>;
 }
 
-function Compliance({ providers, period, preset, target, setTarget, addAction }: { providers: Provider[]; period: string; preset: ComplianceFilterPreset; target: number; setTarget: (n: number) => void; addAction: (c: string, s: string, r: string, p?: Action["priority"]) => void }) {
+function Compliance({ providers, period, preset, target, setTarget, addAction }: { providers: Provider[]; period: string; preset: ComplianceFilterPreset; target: number; setTarget: (n: number) => void; addAction: (c: string, s: string, r: string, p?: Action["priority"], context?: Pick<Action, "providerId" | "evidence" | "expectedResult">) => void }) {
   const [county, setCounty] = useState("All");
   const [focus, setFocus] = useState<ComplianceFilterPreset>(preset);
   const pcps = providers.filter((p) => p.type === "Individual" && p.specialty === "Primary Care" && (county === "All" || p.county === county));
@@ -676,7 +668,7 @@ function Compliance({ providers, period, preset, target, setTarget, addAction }:
     <PageHeader eyebrow="Quality improvement" title="Preventive Care Compliance" description="Identify persistently low-performing PCPs and initiate evidence-based improvement workflows." />
     <section className="settings-strip"><div><b>Performance rule</b><p>Classify PCPs below the selected target for 3 consecutive reporting years.</p></div><label className="range-control"><span>Minimum acceptable rate <b>{target}%</b></span><input type="range" min="60" max="90" value={target} onChange={(e) => setTarget(Number(e.target.value))} /></label></section>
     <div className="toolbar"><Select label="Performance view" value={focus} onChange={(value) => setFocus(value as ComplianceFilterPreset)}><option value="all">All evaluated PCPs</option><option value="below-target">Below period target</option><option value="evaluated">Eligible PCP cohort</option><option value="improvement-plans">Open improvement plans</option></Select><Select label="County" value={county} onChange={setCounty}><option>All</option>{counties.map((c) => <option key={c}>{c}</option>)}</Select><span className="result-count">{rows.length} providers · {getPeriodLabel(period)} IPA rate {avg}%</span></div>
-    <section className="table-card"><div className="table-wrap"><PaginatedTable><thead><tr><th>Provider</th><th>County</th><th>2023</th><th>2024</th><th>2025</th><th>{getPeriodLabel(period)}</th><th>Target</th><th>Eligible members</th><th>Status</th><th>Action</th></tr></thead><tbody>{rows.map((provider) => { const metrics = getPeriod(provider, period); const belowTarget = metrics.preventiveCompliance < target; return <tr key={provider.id}><td><b>{provider.name}</b><small>{provider.id}</small></td><td>{provider.county}</td>{provider.rates.map((rate, index) => <td key={index}><span className={rate < target ? "metric-low" : "metric-good"}>{rate}%</span></td>)}<td><span className={belowTarget ? "metric-low" : "metric-good"}>{metrics.preventiveCompliance}%</span></td><td>{target}%</td><td>{metrics.attributedMembers}</td><td><Badge tone={belowTarget ? "bad" : "good"}>{belowTarget ? "Below target" : "Meets standard"}</Badge></td><td><Button variant="secondary" onClick={() => addAction("Provider Education", provider.name, `Below ${target}% in ${getPeriodLabel(period)}`)}>Create plan</Button></td></tr>; })}</tbody></PaginatedTable></div>{!rows.length && <Empty title="No providers match this rule" message="Adjust the threshold or change the performance view." />}</section>
+    <section className="table-card"><div className="table-wrap"><PaginatedTable><thead><tr><th>Provider</th><th>County</th><th>2023</th><th>2024</th><th>2025</th><th>{getPeriodLabel(period)}</th><th>Target</th><th>Eligible members</th><th>Status</th><th>Action</th></tr></thead><tbody>{rows.map((provider) => { const metrics = getPeriod(provider, period); const belowTarget = metrics.preventiveCompliance < target; return <tr key={provider.id}><td><b>{provider.name}</b><small>{provider.id}</small></td><td>{provider.county}</td>{provider.rates.map((rate, index) => <td key={index}><span className={rate < target ? "metric-low" : "metric-good"}>{rate}%</span></td>)}<td><span className={belowTarget ? "metric-low" : "metric-good"}>{metrics.preventiveCompliance}%</span></td><td>{target}%</td><td>{metrics.attributedMembers}</td><td><Badge tone={belowTarget ? "bad" : "good"}>{belowTarget ? "Below target" : "Meets standard"}</Badge></td><td><Button variant="secondary" onClick={() => addAction("Provider Education", provider.name, `Below ${target}% in ${getPeriodLabel(period)}`, undefined, { providerId: provider.id })}>Create plan</Button><LatestAction category="Provider Education" subject={provider.name} providerId={provider.id} /></td></tr>; })}</tbody></PaginatedTable></div>{!rows.length && <Empty title="No providers match this rule" message="Adjust the threshold or change the performance view." />}</section>
   </>;
 }
 
@@ -688,7 +680,7 @@ function adequacyRows(providers: Provider[], threshold: number) {
     return { county, specialty, members, count, ratio: Math.round(members / count), gap: Math.max(0, Math.ceil(members / threshold) - count) };
   }));
 }
-function Adequacy({ providers, preset, threshold, setThreshold, addAction }: { providers: Provider[]; preset: AdequacyFilterPreset; threshold: number; setThreshold: (n: number) => void; addAction: (c: string, s: string, r: string) => void }) {
+function Adequacy({ providers, preset, threshold, setThreshold, addAction }: { providers: Provider[]; preset: AdequacyFilterPreset; threshold: number; setThreshold: (n: number) => void; addAction: (c: string, s: string, r: string, p?: Action["priority"], context?: Pick<Action, "providerId" | "evidence" | "expectedResult">) => void }) {
   const [county, setCounty] = useState("All");
   const [focus, setFocus] = useState<AdequacyFilterPreset>(preset);
   const allRows = adequacyRows(providers, threshold).filter((row) => (county === "All" || row.county === county) && row.gap > 0);
@@ -700,7 +692,7 @@ function Adequacy({ providers, preset, threshold, setThreshold, addAction }: { p
     <PageHeader eyebrow="Network growth" title="Network Adequacy" description="Analyze county and specialty capacity against configurable members-per-provider thresholds." />
     <section className="settings-strip"><div><b>Capacity assumption</b><p>Additional providers = ceiling(member count ÷ threshold) − active providers.</p></div><label className="range-control"><span>Maximum members per provider <b>{threshold}</b></span><input type="range" min="150" max="500" step="25" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} /></label></section>
     <div className="toolbar"><Select label="Adequacy view" value={focus} onChange={(value) => setFocus(value as AdequacyFilterPreset)}><option value="gaps">County-specialty gaps</option><option value="providers-needed">Additional providers needed</option><option value="member-impact">Highest member impact</option><option value="recruitment">Top recruitment opportunities</option></Select><Select label="County" value={county} onChange={setCounty}><option>All</option>{counties.map((c) => <option key={c}>{c}</option>)}</Select><span className="result-count">{rows.length} combinations</span></div>
-    <section className="table-card"><div className="table-wrap"><PaginatedTable><thead><tr><th>County</th><th>Specialty</th><th>Attributed members</th><th>Active providers</th><th>Members / provider</th><th>Threshold</th><th>Gap</th><th>Recommended addition</th><th>Action</th></tr></thead><tbody>{rows.map((r) => <tr key={`${r.county}-${r.specialty}`}><td><b>{r.county}</b><small>California</small></td><td>{r.specialty}</td><td>{r.members.toLocaleString()}</td><td>{r.count}</td><td><b className={r.ratio > threshold ? "metric-low" : "metric-good"}>{r.ratio.toLocaleString()}</b></td><td>{threshold}</td><td><Badge tone={r.gap ? "bad" : "good"}>{r.gap ? "Below threshold" : "Adequate"}</Badge></td><td><b>{r.gap}</b></td><td><Button variant="secondary" disabled={!r.gap} onClick={() => addAction("Recruitment", `${r.specialty} — ${r.county}`, `${r.ratio} members per provider; recruit ${r.gap}`)}>Recruit</Button></td></tr>)}</tbody></PaginatedTable></div></section>
+    <section className="table-card"><div className="table-wrap"><PaginatedTable><thead><tr><th>County</th><th>Specialty</th><th>Attributed members</th><th>Active providers</th><th>Members / provider</th><th>Threshold</th><th>Gap</th><th>Recommended addition</th><th>Action</th></tr></thead><tbody>{rows.map((r) => <tr key={`${r.county}-${r.specialty}`}><td><b>{r.county}</b><small>California</small></td><td>{r.specialty}</td><td>{r.members.toLocaleString()}</td><td>{r.count}</td><td><b className={r.ratio > threshold ? "metric-low" : "metric-good"}>{r.ratio.toLocaleString()}</b></td><td>{threshold}</td><td><Badge tone={r.gap ? "bad" : "good"}>{r.gap ? "Below threshold" : "Adequate"}</Badge></td><td><b>{r.gap}</b></td><td><Button variant="secondary" disabled={!r.gap} onClick={() => addAction("Recruitment", `${r.specialty} — ${r.county}`, `${r.ratio} members per provider; recruit ${r.gap}`)}>Recruit</Button><LatestAction category="Recruitment" subject={`${r.specialty} — ${r.county}`} /></td></tr>)}</tbody></PaginatedTable></div></section>
   </>;
 }
 
@@ -711,15 +703,15 @@ const services = [
   { name: "Ambulatory GI Procedures", category: "Gastroenterology", utilization: "1,180 services", spend: "$1.9M", variability: "Low", coverage: 83, status: "Approved for further evaluation", specialty: "Gastroenterology" },
   { name: "Physical Therapy", category: "Rehabilitation", utilization: "4,960 services", spend: "$1.2M", variability: "Low", coverage: 91, status: "Potentially manageable", specialty: "Physical Therapy" },
 ];
-function Dofr({ addAction, go }: { addAction: (c: string, s: string, r: string, p?: Action["priority"]) => void; go: (p: Page) => void }) {
+function Dofr({ addAction }: { addAction: (c: string, s: string, r: string, p?: Action["priority"], context?: Pick<Action, "providerId" | "evidence" | "expectedResult">) => void }) {
   const [selected, setSelected] = useState(services[0]);
   return <>
-    <PageHeader eyebrow="Financial responsibility" title="DOFR Expansion" description="Evaluate services for potential responsibility expansion with traceable clinical and network evidence." />
+    <PageHeader eyebrow="Network adequacy" title="Network adequacy requirements" description="Evaluate services for potential responsibility expansion with traceable clinical and network evidence." />
     <div className="workflow-steps"><b>Service assessment</b><span>→</span><b>Required specialties</b><span>→</span><b>County gap</b><span>→</span><b>Recruitment</b><span>→</span><b>Expansion review</b></div>
     <div className="split-layout"><section className="table-card"><div className="card-head padded"><div><h2>Service assessment catalog</h2><p>{services.length} service categories under review</p></div></div><div className="service-list">{services.map((s) => <button className={selected.name === s.name ? "selected" : ""} onClick={() => setSelected(s)} key={s.name}><div><b>{s.name}</b><small>{s.category}</small></div><Badge tone={toneFor(s.status)}>{s.status}</Badge></button>)}</div></section>
       <section className="detail-card"><div className="card-head"><div><p className="eyebrow">Assessment detail</p><h2>{selected.name}</h2></div><Badge tone={toneFor(selected.status)}>{selected.status}</Badge></div><div className="metric-grid"><div><span>Historical utilization</span><b>{selected.utilization}</b></div><div><span>Historical expenditure</span><b>{selected.spend}</b></div><div><span>Cost variability</span><b>{selected.variability}</b></div><div><span>Existing coverage</span><b>{selected.coverage}%</b></div></div>
         <div className="assessment"><h3>Preliminary manageability rationale</h3><p>Utilization is sufficiently consistent for operational review. Performance data is available, but county-level specialist capacity must be validated before a financial recommendation is made.</p></div>
-        <div className="specialty-callout"><span>Required specialty</span><b>{selected.specialty}</b><p>Coverage is adequate in 3 of 6 member counties. Napa and Marin require additional review.</p><div><Button variant="secondary" onClick={() => go("adequacy")}>View network gaps</Button><Button onClick={() => addAction("DOFR Review", selected.name, `${selected.specialty} network validation required`, "Medium")}>Create review action</Button></div></div>
+        <div className="specialty-callout"><span>Required specialty</span><b>{selected.specialty}</b><p>Coverage is adequate in 3 of 6 member counties. Napa and Marin require additional review.</p><div><Button onClick={() => addAction("DOFR Review", selected.name, `${selected.specialty} network validation required`, "Medium")}>Create review action</Button><LatestAction category="DOFR Review" subject={selected.name} /></div></div>
         <p className="disclaimer">Preliminary operational assessment only. This does not represent a profitability or contract recommendation.</p>
       </section>
     </div>
@@ -734,33 +726,71 @@ const referralData = [
   { specialty: "Behavioral Health", referrals: 152, members: 127, trend: 9, network: 4, county: "Alameda", priority: "Medium" },
   { specialty: "Endocrinology", referrals: 108, members: 93, trend: -7, network: 5, county: "San Francisco", priority: "Low" },
 ];
-function Referrals({ providers, preset, addAction }: { providers: Provider[]; preset: ReferralFilterPreset; addAction: (c: string, s: string, r: string) => void }) {
+// Fictional county breakdown; allocate each specialty total without double counting.
+const countyReferralData = referralData.flatMap(row => {
+  const otherCounties = counties.filter(county => county !== row.county);
+  let allocatedMembers = 0;
+  let allocatedReferrals = 0;
+  return [row.county, ...otherCounties].map((county, index, countyList) => {
+    const last = index === countyList.length - 1;
+    const weight = index === 0 ? 0.45 : 0.11;
+    const members = last ? row.members - allocatedMembers : Math.floor(row.members * weight);
+    const referrals = last ? row.referrals - allocatedReferrals : Math.floor(row.referrals * weight);
+    allocatedMembers += members;
+    allocatedReferrals += referrals;
+    return { ...row, county, members, referrals };
+  });
+});
+
+function Referrals({ providers, preset, addAction }: { providers: Provider[]; preset: ReferralFilterPreset; addAction: (c: string, s: string, r: string, p?: Action["priority"], context?: Pick<Action, "providerId" | "evidence" | "expectedResult">) => void }) {
   const [county, setCounty] = useState("All");
   const [focus, setFocus] = useState<ReferralFilterPreset>(preset);
-  const data = referralData
+  const [minimumMembers, setMinimumMembers] = useState(() => {
+    const stored = localStorage.getItem("ipa-referral-minimum-members");
+    const value = stored === null ? 0 : Number(stored);
+    return Number.isSafeInteger(value) && value >= 0 ? value : 0;
+  });
+  useEffect(() => localStorage.setItem("ipa-referral-minimum-members", String(minimumMembers)), [minimumMembers]);
+  const data = countyReferralData
+    .map(row => {
+      const aboveThreshold = row.members > minimumMembers;
+      const positiveTrend = row.trend > 0;
+      const priority: Action["priority"] = aboveThreshold && positiveTrend ? "High" : aboveThreshold || positiveTrend ? "Medium" : "Low";
+      return { ...row, priority };
+    })
     .filter((row) => county === "All" || row.county === county)
-    .filter((row) => focus === "member-impact" ? row.members >= 125 : focus === "rising-share" ? row.trend > 0 : focus === "high-priority" ? row.priority === "High" : true)
+    .filter((row) => focus === "rising-share" ? row.trend > 0 : focus === "high-priority" ? row.priority === "High" : true)
     .sort((a, b) => focus === "member-impact" ? b.members - a.members : focus === "rising-share" ? b.trend - a.trend : b.referrals - a.referrals);
   useEffect(() => { setFocus(preset); setCounty("All"); }, [preset]);
   return <>
     <PageHeader eyebrow="Referral management" title="Out-of-Network Referrals" description="Prioritize specialty recruitment using referral volume, member impact, and current network capacity." />
-    <div className="toolbar"><Select label="Referral view" value={focus} onChange={(value) => setFocus(value as ReferralFilterPreset)}><option value="volume">All OON referrals</option><option value="member-impact">Highest member impact</option><option value="rising-share">Rising OON share</option><option value="high-priority">High-priority specialties</option></Select><Select label="County" value={county} onChange={setCounty}><option>All</option>{counties.map((c) => <option key={c}>{c}</option>)}</Select><span className="result-count">{data.length} specialties</span></div>
-    <section className="table-card"><div className="table-wrap"><PaginatedTable><thead><tr><th>Specialty</th><th>OON referrals</th><th>Affected members</th><th>Quarterly trend</th><th>In-network specialists</th><th>Highest-need county</th><th>Priority</th><th>Action</th></tr></thead><tbody>{data.map((r) => <tr key={r.specialty}><td><b>{r.specialty}</b></td><td><b>{r.referrals}</b></td><td>{r.members}</td><td><span className={r.trend > 0 ? "metric-low" : "metric-good"}>{r.trend > 0 ? "+" : ""}{r.trend}%</span></td><td>{providers.filter((p) => p.specialty === r.specialty && p.status === "Active").length || r.network}</td><td>{r.county}</td><td><Badge tone={toneFor(r.priority)}>{r.priority}</Badge></td><td><Button variant="secondary" onClick={() => addAction("Recruitment", `${r.specialty} — ${r.county}`, `${r.referrals} out-of-network referrals`)}>Create opportunity</Button></td></tr>)}</tbody></PaginatedTable></div></section>
+    <section className="settings-strip"><div><b>Specialty and county rule</b><p>Each row represents a specialty-county combination. High: positive quarterly trend and members above threshold. Medium: one condition met. Low: neither met. The threshold sets priority only.</p><p>Fictional county allocations; trends are specialty-level.</p></div><label className="control">Minimum affected members<input type="number" min="0" step="1" value={minimumMembers} onChange={event => { if (!event.target.value) return; const value = Number(event.target.value); if (Number.isSafeInteger(value) && value >= 0) setMinimumMembers(value); }} /></label></section>
+    <div className="toolbar"><Select label="Referral view" value={focus} onChange={(value) => setFocus(value as ReferralFilterPreset)}><option value="volume">All combinations</option><option value="member-impact">Highest member impact</option><option value="rising-share">Rising OON share</option><option value="high-priority">High-priority combinations</option></Select><Select label="County" value={county} onChange={setCounty}><option>All</option>{counties.map((c) => <option key={c}>{c}</option>)}</Select><span className="result-count">{data.length} specialty-county combinations</span></div>
+    <section className="table-card"><div className="table-wrap"><PaginatedTable><thead><tr><th>County</th><th>Specialty</th><th>OON referrals</th><th>Affected members</th><th>Quarterly trend</th><th>In-network specialists</th><th>Priority</th><th>Action</th></tr></thead><tbody>{data.map((r) => <tr key={`${r.specialty}-${r.county}`}><td>{r.county}</td><td><b>{r.specialty}</b></td><td><b>{r.referrals}</b></td><td>{r.members}</td><td><span className={r.trend > 0 ? "metric-low" : "metric-good"}>{r.trend > 0 ? "+" : ""}{r.trend}%</span></td><td>{providers.filter((p) => p.type === "Individual" && p.specialty === r.specialty && p.county === r.county && p.status === "Active" && p.network === "In Network").length}</td><td><Badge tone={toneFor(r.priority)}>{r.priority}</Badge></td><td><Button variant="secondary" onClick={() => addAction("Recruitment", `${r.specialty} — ${r.county}`, `${r.referrals} out-of-network referrals affecting ${r.members} members in ${r.county} County for ${r.specialty}`, r.priority)}>Create opportunity</Button><LatestAction category="Recruitment" subject={`${r.specialty} — ${r.county}`} /></td></tr>)}</tbody></PaginatedTable></div>{!data.length && <Empty title="No specialty-county combinations match" message="Adjust the referral view or county filter." />}</section>
   </>;
 }
 
-function Facilities({ providers, period, addAction }: { providers: Provider[]; period: string; addAction: (c: string, s: string, r: string) => void }) {
+function classifyFacility(facility: Provider, period: string) {
+  const metrics = getPeriod(facility, period);
+  return metrics.satisfaction >= 80 && metrics.hospitalization <= 7 ? "Retain" : metrics.satisfaction < 80 && metrics.hospitalization > 7 ? "Find Replacement" : "Educate";
+}
+
+function FacilityClassificationSummary({ providers, period }: { providers: Provider[]; period: string }) {
+  const facilities = providers.filter(provider => provider.type === "Facility");
+  const count = (classification: string) => facilities.filter(facility => classifyFacility(facility, period) === classification).length;
+  return <section className="card"><div className="card-head"><div><h2>Facility classification summary</h2><p>{facilities.length} facilities evaluated ? {getPeriodLabel(period)}</p></div></div><BarChart data={[{ label: "Retain", value: count("Retain") }, { label: "Educate", value: count("Educate") }, { label: "Find Replacement", value: count("Find Replacement") }]} /></section>;
+}
+
+function Facilities({ providers, period, addAction }: { providers: Provider[]; period: string; addAction: (c: string, s: string, r: string, p?: Action["priority"], context?: Pick<Action, "providerId" | "evidence" | "expectedResult">) => void }) {
   const facilities = providers.filter((p) => p.type === "Facility");
   const [quadrant, setQuadrant] = useState("All");
-  const classify = (facility: Provider) => { const metrics = getPeriod(facility, period); return metrics.satisfaction >= 80 && metrics.hospitalization <= 7 ? "Retain" : metrics.satisfaction < 80 && metrics.hospitalization > 7 ? "Find Replacement" : "Educate"; };
+  const classify = (facility: Provider) => classifyFacility(facility, period);
   const shown = facilities.filter((f) => quadrant === "All" || classify(f) === quadrant);
-  const count = (q: string) => facilities.filter((f) => classify(f) === q).length;
   return <>
     <PageHeader eyebrow="Quality oversight" title="Facilities" description="Evaluate satisfaction and avoidable hospitalizations with explainable, reviewable recommendations." />
-    <div className="threshold-note"><span>{getPeriodLabel(period)} quality thresholds</span><b>Satisfaction ≥ 80%</b><b>Avoidable hospitalizations ≤ 7.0%</b><small>Minimum sample: 30 responses</small></div>
-    <div className="facility-layout"><section className="matrix-card"><div className="card-head"><div><h2>Facility decision matrix</h2><p>Select a quadrant to filter the facility list</p></div><Button variant="ghost" onClick={() => setQuadrant("All")}>Clear filter</Button></div><div className="matrix"><div className="axis-y">Satisfaction acceptable</div><button className={quadrant === "Retain" ? "selected retain" : "retain"} onClick={() => setQuadrant("Retain")}><span>{count("Retain")}</span><b>Retain</b><small>Both measures acceptable</small></button><button className={quadrant === "Educate" ? "selected educate" : "educate"} onClick={() => setQuadrant("Educate")}><span>{count("Educate")}</span><b>Educate</b><small>One measure needs attention</small></button><button className={quadrant === "Find Replacement" ? "selected replace" : "replace"} onClick={() => setQuadrant("Find Replacement")}><span>{count("Find Replacement")}</span><b>Find Replacement</b><small>Both measures unacceptable</small></button><div className="axis-x">Avoidable hospitalization performance →</div></div></section>
-      <section className="card"><div className="card-head"><div><h2>Classification summary</h2><p>{facilities.length} facilities evaluated</p></div></div><BarChart data={[{ label: "Retain", value: count("Retain") }, { label: "Educate", value: count("Educate") }, { label: "Replace", value: count("Find Replacement") }]} /></section></div>
-    <section className="table-card"><div className="card-head padded"><div><h2>{quadrant === "All" ? "All facilities" : `${quadrant} recommendations`}</h2><p>{getPeriodLabel(period)} scores and decision rationale</p></div><Badge tone="info">{shown.length} facilities</Badge></div><div className="table-wrap"><PaginatedTable><thead><tr><th>Facility</th><th>County</th><th>Satisfaction</th><th>Classification</th><th>Avoidable hospitalization</th><th>Classification</th><th>Recommendation</th><th>Action</th></tr></thead><tbody>{shown.map((facility) => { const metrics = getPeriod(facility, period); const classification = classify(facility); return <tr key={facility.id}><td><b>{facility.name}</b><small>{facility.specialty}</small></td><td>{facility.county}</td><td><b>{metrics.satisfaction}%</b><small>n={metrics.responseCount} responses</small></td><td><Badge tone={metrics.satisfaction >= 80 ? "good" : "bad"}>{metrics.satisfaction >= 80 ? "Acceptable" : "Not Acceptable"}</Badge></td><td><b>{metrics.hospitalization}%</b><small>{getPeriodLabel(period)} measurement period</small></td><td><Badge tone={metrics.hospitalization <= 7 ? "good" : "bad"}>{metrics.hospitalization <= 7 ? "Acceptable" : "Not Acceptable"}</Badge></td><td><Badge tone={toneFor(classification)}>{classification}</Badge></td><td><Button variant="secondary" onClick={() => addAction(classification === "Retain" ? "Facility Retention" : classification === "Educate" ? "Facility Improvement" : "Replacement Review", facility.name, `${getPeriodLabel(period)} satisfaction ${metrics.satisfaction}%; hospitalization ${metrics.hospitalization}%`)}>Start review</Button></td></tr>; })}</tbody></PaginatedTable></div></section>
+    <section className="settings-strip"><div><b>Facility classification rule</b><p>For the selected reporting period, satisfaction of at least 80% and avoidable hospitalizations of at most 7.0% are acceptable. Retain facilities when both measures are acceptable; Educate when one measure is unacceptable; Find Replacement when both measures are unacceptable.</p></div></section>
+    <div className="toolbar"><Select label="Recommendation" value={quadrant} onChange={setQuadrant}><option>All</option><option>Retain</option><option>Educate</option><option>Find Replacement</option></Select><span className="result-count">{shown.length} facilities</span></div>
+    <section className="table-card"><div className="card-head padded"><div><h2>{quadrant === "All" ? "All facilities" : `${quadrant} recommendations`}</h2><p>{getPeriodLabel(period)} scores and decision rationale</p></div><Badge tone="info">{shown.length} facilities</Badge></div><div className="table-wrap"><PaginatedTable><thead><tr><th>Facility</th><th>County</th><th>Satisfaction</th><th>Classification</th><th>Avoidable hospitalization</th><th>Classification</th><th>Recommendation</th><th>Action</th></tr></thead><tbody>{shown.map((facility) => { const metrics = getPeriod(facility, period); const classification = classify(facility); return <tr key={facility.id}><td><b>{facility.name}</b><small>{facility.specialty}</small></td><td>{facility.county}</td><td><b>{metrics.satisfaction}%</b><small>n={metrics.responseCount} responses</small></td><td><Badge tone={metrics.satisfaction >= 80 ? "good" : "bad"}>{metrics.satisfaction >= 80 ? "Acceptable" : "Not Acceptable"}</Badge></td><td><b>{metrics.hospitalization}%</b><small>{getPeriodLabel(period)} measurement period</small></td><td><Badge tone={metrics.hospitalization <= 7 ? "good" : "bad"}>{metrics.hospitalization <= 7 ? "Acceptable" : "Not Acceptable"}</Badge></td><td><Badge tone={toneFor(classification)}>{classification}</Badge></td><td><Button variant="secondary" onClick={() => addAction(classification === "Retain" ? "Facility Retention" : classification === "Educate" ? "Facility Improvement" : "Replacement Review", facility.name, `${getPeriodLabel(period)} satisfaction ${metrics.satisfaction}%; hospitalization ${metrics.hospitalization}%`, undefined, { providerId: facility.id })}>Start review</Button><LatestAction category={classification === "Retain" ? "Facility Retention" : classification === "Educate" ? "Facility Improvement" : "Replacement Review"} subject={facility.name} providerId={facility.id} /></td></tr>; })}</tbody></PaginatedTable></div></section>
   </>;
 }
 
@@ -858,7 +888,7 @@ function WorkPlanDetail({ plan, source, onBack, onUpdate, openSourceAction, meas
     {taskFormOpen && <TaskForm plan={plan} initial={editingTask} onClose={() => setTaskFormOpen(false)} onSave={saveTask} />}
     {taskNotice && <p className="task-success" role="status">{taskNotice}</p>}
     {tab === "Overview" && <WorkPlanOverview plan={plan} />}
-    {tab === "Tasks" && <><section className="table-card"><div className="card-head padded"><div><h2>Tasks</h2><p>Dependencies remain visible until prerequisites are complete.</p></div><Button onClick={addTask}>Add task</Button></div><div className="table-wrap"><PaginatedTable><thead><tr><th>Task</th><th>Owner</th><th>Department</th><th>Due</th><th>Dependency</th><th>Status</th><th>Actions</th></tr></thead><tbody>{plan.tasks.map((task) => <tr key={task.id}><td><b>{task.name}</b><small>{task.note || task.id}</small></td><td><Select ariaLabel={`Owner for ${task.name}`} value={task.owner} onChange={(owner) => updateTask(task.id, { owner })}>{[...new Set(["Unassigned", plan.owner, task.owner, "Maya Ortiz", "Jordan Lee", "Priya Shah", "Evan Brooks"])].map(owner => <option key={owner}>{owner}</option>)}</Select></td><td>{task.department}</td><td>{task.due}</td><td>{plan.tasks.find(item => item.id === task.dependency)?.name || task.dependency || "None"}</td><td><Select value={task.status} onChange={(status) => updateTask(task.id, { status: status as WorkTask["status"] })}>{["Not Started", "In Progress", "Blocked", "Awaiting Review", "Completed", "Cancelled"].map((item) => <option key={item}>{item}</option>)}</Select></td><td><button className="btn btn-ghost" aria-label={`Edit ${task.name}`} onClick={() => { setEditingTask(task); setTaskNotice(""); setTaskFormOpen(true); }}>Edit</button></td></tr>)}</tbody></PaginatedTable></div></section></>}
+    {tab === "Tasks" && <><section className="table-card work-plan-task-table"><div className="card-head padded"><div><h2>Tasks</h2><p>Dependencies remain visible until prerequisites are complete.</p></div><Button onClick={addTask}>Add task</Button></div><div className="table-wrap"><PaginatedTable><thead><tr><th>Task</th><th>Owner</th><th>Department</th><th>Due</th><th>Dependency</th><th>Status</th><th>Actions</th></tr></thead><tbody>{plan.tasks.map((task) => <tr key={task.id}><td><b>{task.name}</b><small>{task.id}</small>{taskNotes(task).length > 0 && <details className="task-note-summary"><summary>{taskNotes(task).length} {taskNotes(task).length === 1 ? "note" : "notes"}</summary>{taskNotes(task).map(note => <div key={note.id}><strong>{note.type}</strong><p>{note.text}</p></div>)}</details>}</td><td><Select ariaLabel={`Owner for ${task.name}`} value={task.owner} onChange={(owner) => updateTask(task.id, { owner })}>{[...new Set(["Unassigned", plan.owner, task.owner, "Maya Ortiz", "Jordan Lee", "Priya Shah", "Evan Brooks"])].map(owner => <option key={owner}>{owner}</option>)}</Select></td><td>{task.department}</td><td>{task.due}</td><td>{plan.tasks.find(item => item.id === task.dependency)?.name || task.dependency || "None"}</td><td><Select value={task.status} onChange={(status) => updateTask(task.id, { status: status as WorkTask["status"] })}>{["Not Started", "In Progress", "Blocked", "Awaiting Review", "Completed", "Cancelled"].map((item) => <option key={item}>{item}</option>)}</Select></td><td><button className="btn btn-ghost" aria-label={`Edit ${task.name}`} onClick={() => { setEditingTask(task); setTaskNotice(""); setTaskFormOpen(true); }}>Edit</button></td></tr>)}</tbody></PaginatedTable></div></section></>}
     {tab === "Outcomes & KPIs" && <OutcomeMeasurements plan={plan} measurements={measurements} save={save} />}
     {tab === "Risks & Decisions" && <WorkPlanRisks plan={plan} onAdd={() => addIssue()} onEdit={risk => setRiskDraft({ ...risk, type: riskType(risk) })} onResolve={risk => save({ risks: plan.risks.map(item => item.id === risk.id ? { ...item, status: "Resolved" } : item) }, `Issue resolved: ${risk.issue}`)} />}
     {riskDraft && <RiskForm initial={riskDraft} onClose={() => setRiskDraft(null)} onSave={saveRisk} />}    {tab === "Activity" && <section className="card activity-card"><div className="card-head"><div><h2>Activity and history</h2><p>Simulated prototype history</p></div></div><div className="activity-feed">{plan.activity.map((item, index) => <div key={`${item.date}-${index}`}><i /><span><b>{item.text}</b><small>{item.date} · {item.by}</small></span></div>)}</div></section>}

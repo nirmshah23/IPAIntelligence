@@ -10,8 +10,8 @@ const intelligencePages: [IntelligencePage, string][] = [
   ['dashboard', 'Membership workflow'],
   ['providers', 'Provider directory'], ['disenrollments', 'Disenrollments'],
   ['compliance', 'Preventive compliance'],
-  ['adequacy', 'Network adequacy'], ['dofr', 'DOFR Expansion'],
-  ['referrals', 'Referral intelligence'], ['facilities', 'Facilities'],
+  ['adequacy', 'Network adequacy'],
+  ['referrals', 'OON referrals'], ['facilities', 'Facilities'],
   ['actions', 'Action center'],
 ];
 const relationsPages: [IntelligencePage, string][] = [['relations', 'Relations workflow'], ['workplans', 'Work plan'], ['measurements', 'Measurement setup']];
@@ -33,7 +33,7 @@ function initialRoute() {
     reports: (page === 'reports' || page === 'compliance' ? 'compliance' : page === 'membership' ? 'membership' : 'providers') as ReportsPage,
     navigation: { planId: params.get('plan') || undefined, filter: params.get('filter') || undefined } as Navigation,
     relations: (page === 'measurements' ? 'measurements' : page === 'workplans' ? 'workplans' : 'relations') as IntelligencePage,
-    intelligence: intelligencePages.some(([id]) => id === page) ? page as IntelligencePage : 'dashboard' as IntelligencePage,
+    intelligence: page === 'dofr' ? 'adequacy' as IntelligencePage : intelligencePages.some(([id]) => id === page) ? page as IntelligencePage : 'dashboard' as IntelligencePage,
     assurance: page === 'register' ? 'queue' as AssurancePage : [...assurancePages.map(([id]) => id), 'detail'].includes(page) ? page as AssurancePage : 'overview' as AssurancePage,
   };
 }

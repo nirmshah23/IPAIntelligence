@@ -9,14 +9,14 @@ const { eligibilityTransition: transition, initializeEligibility: initialize, fi
 const base = { id: "ELG-2026-04", title: "April eligibility", category: "Eligibility", payer: "Northstar", period: "April 2026", due: "May 5, 2026", owner: "Maya Chen", execution: "In progress", verification: "Pending", deadline: "At risk", risk: "High", next: "Validate" };
 const valid = { reference: "FILE-v2 / VAL-2", expected: 18442, actual: 18442, invalid: 0, duplicates: 0, schemaPassed: true, encrypted: true };
 const ready = () => transition(initialize(base), { type: "validate", file: valid });
-const submitted = () => transition(ready(), { type: "submit", receipt: "SUB-1" });
-const accept = item => transition(item, { type: "response", accepted: true, reference: "ACK-1", count: 18442, reason: "" });
+const submitted = () => transition(ready(), { type: "receive", receipt: "SUB-1" });
+const accept = item => transition(item, { type: "process", accepted: true, reference: "ACK-1", count: 18442, reason: "" });
 
-test("April mismatch blocks submission until corrected and revalidated", () => {
+test("April mismatch blocks processing until corrected and revalidated", () => {
   const initial = initialize(base);
   assert.equal(initial.eligibility.file.expected - initial.eligibility.file.actual, 142);
-  assert.throws(() => transition(initial, { type: "submit", receipt: "SUB-1" }), /validation/);
-  assert.equal(ready().eligibility.stage, "Ready to submit");
+  assert.throws(() => transition(initial, { type: "receive", receipt: "SUB-1" }), /validation/);
+  assert.equal(ready().eligibility.stage, "Ready to process");
   assert.equal(ready().verification, "Pending");
 });
 test("validation rejects invalid counts and blocks failed checks", () => {
@@ -31,16 +31,16 @@ test("validation rejects invalid counts and blocks failed checks", () => {
   }
   assert.throws(() => transition(initialize(base), { type: "validate", file: { ...valid, reference: " " } }), /reference/);
 });
-test("submission requires owner and receipt; pending submission is not completed", () => {
-  assert.throws(() => transition({ ...ready(), owner: "Unassigned" }, { type: "submit", receipt: "SUB-1" }), /owner/);
-  assert.throws(() => transition(ready(), { type: "submit", receipt: " " }), /receipt/);
-  assert.equal(submitted().execution, "Submitted / awaiting verification");
+test("incoming receipt requires owner and reference; pending processing is not completed", () => {
+  assert.throws(() => transition({ ...ready(), owner: "Unassigned" }, { type: "receive", receipt: "SUB-1" }), /owner/);
+  assert.throws(() => transition(ready(), { type: "receive", receipt: " " }), /receipt/);
+  assert.equal(submitted().execution, "In progress");
   assert.equal(submitted().verification, "Pending");
 });
-test("acceptance requires submission, acknowledgment, and exact accepted count", () => {
-  assert.throws(() => accept(ready()), /submission/);
-  assert.throws(() => transition(submitted(), { type: "response", accepted: true, reference: "ACK", count: 18441, reason: "" }), /count/);
-  assert.throws(() => transition(submitted(), { type: "response", accepted: true, reference: " ", count: 18442, reason: "" }), /reference/);
+test("acceptance requires receipt, processing report, and exact accepted count", () => {
+  assert.throws(() => accept(ready()), /receipt/);
+  assert.throws(() => transition(submitted(), { type: "process", accepted: true, reference: "ACK", count: 18441, reason: "" }), /count/);
+  assert.throws(() => transition(submitted(), { type: "process", accepted: true, reference: " ", count: 18442, reason: "" }), /reference/);
   const result = accept(submitted());
   assert.equal(result.execution, "Completed");
   assert.equal(result.verification, "Verified");
@@ -48,17 +48,17 @@ test("acceptance requires submission, acknowledgment, and exact accepted count",
   assert.equal(result.eligibility.history.length, 4);
 });
 test("rejection requires rationale and correction invalidates prior evidence", () => {
-  assert.throws(() => transition(submitted(), { type: "response", accepted: false, reference: "ACK", count: 0, reason: " " }), /reason/);
-  const rejected = transition(submitted(), { type: "response", accepted: false, reference: "ACK-rejected", count: 0, reason: "Invalid member IDs" });
+  assert.throws(() => transition(submitted(), { type: "process", accepted: false, reference: "ACK", count: 0, reason: " " }), /reason/);
+  const rejected = transition(submitted(), { type: "process", accepted: false, reference: "ACK-rejected", count: 0, reason: "Invalid member IDs" });
   assert.equal(rejected.eligibility.stage, "Rejected");
   assert.equal(rejected.verification, "Failed");
   const revised = transition(rejected, { type: "revise", reason: "Correct IDs" });
-  assert.equal(revised.eligibility.stage, "Prepare");
+  assert.equal(revised.eligibility.stage, "Awaiting file");
   assert.equal(revised.eligibility.file, undefined);
   assert.equal(revised.eligibility.receipt, undefined);
   assert.equal(revised.eligibility.acknowledgment, undefined);
   assert.ok(revised.eligibility.history.some(event => event.text.includes("Invalid member IDs")));
-  assert.throws(() => transition(revised, { type: "submit", receipt: "SUB-2" }), /validation/);
+  assert.throws(() => transition(revised, { type: "receive", receipt: "SUB-2" }), /validation/);
 });
 test("acceptance releases roster dependency; reopening blocks it again", () => {
   const roster = { ...base, id: "ROS-2026-04", category: "Provider Data", execution: "Blocked", next: "Wait for eligibility acceptance" };
@@ -74,6 +74,6 @@ test("acceptance releases roster dependency; reopening blocks it again", () => {
 test("serialized cases preserve workflow and history", () => {
   const item = JSON.parse(JSON.stringify(submitted()));
   assert.equal(accept(item).eligibility.stage, "Accepted");
-  assert.equal(initialize({ ...base, id: "ELG-other" }).eligibility.stage, "Prepare");
+  assert.equal(initialize({ ...base, id: "ELG-other" }).eligibility.stage, "Awaiting file");
   assert.equal(initialize({ ...base, id: "ELG-2026-03" }).eligibility.stage, "Accepted");
 });

@@ -53,6 +53,7 @@ export type Provider = {
   periodData: Record<string, ProviderPeriodData>;
 };
 export type Action = {
+  createdAt?: string;
   providerId?: string;
   id: string;
   category: string;
@@ -70,7 +71,8 @@ export type Action = {
   nextReview?: string;
   workPlanId?: string;
 };
-export type WorkTask = { id: string; name: string; owner: string; department: string; due: string; status: "Not Started" | "In Progress" | "Blocked" | "Awaiting Review" | "Completed" | "Cancelled"; dependency?: string; note?: string };
+export type TaskNote = { id: string; type: "General" | "Instruction" | "Progress Update" | "Blocker" | "Decision"; text: string };
+export type WorkTask = { id: string; name: string; owner: string; department: string; due: string; status: "Not Started" | "In Progress" | "Blocked" | "Awaiting Review" | "Completed" | "Cancelled"; dependency?: string; note?: string; notes?: TaskNote[] };
 export type WorkKpi = { measurementId?: string; direction?: "increase" | "decrease"; source?: string; id: string; name: string; baseline: number; target: number; actual: number; unit: string; period: string; owner: string; status: "Not Yet Measured" | "On Track" | "At Risk" | "Target Met" | "Target Missed" };
 export type WorkRisk = { type?: "Risk" | "Blocker" | "Decision"; id: string; issue: string; impact: string; severity: "High" | "Medium" | "Low"; owner: string; due: string; decisionFrom?: string; status: "Open" | "Mitigating" | "Resolved" };
 export type WorkPlan = {

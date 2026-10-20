@@ -66,3 +66,20 @@
 .assurance-module .quality-workflow .credential-steps { flex-wrap:wrap; }
 .assurance-module .quality-workflow .credential-steps li { min-width:110px; }
 .assurance-module .quality-workflow input:disabled { background:#f4f7f7; color:var(--muted); }
+
+/* Match Membership and Relations workflow table surfaces and spacing. */
+.assurance-module .obligation-grids{display:grid;gap:20px}
+.assurance-module .obligation-summary-grids{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;align-items:start}
+.assurance-module .obligation-grids .card{min-width:0;margin:0;padding:0;overflow:hidden;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
+.assurance-module .obligation-grids .card-head{padding:18px 20px;margin:0;border-bottom:1px solid var(--line)}
+.assurance-module .obligation-grids table{width:100%;min-width:0;table-layout:fixed;border-collapse:collapse}
+.assurance-module .obligation-grids > .card table{min-width:900px}
+.assurance-module .obligation-grids th,.assurance-module .obligation-grids td{white-space:normal;overflow-wrap:anywhere}
+.assurance-module .obligation-grids thead th{padding:10px 13px;background:#f7f9f8;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--line)}
+.assurance-module .obligation-grids tbody tr{cursor:default}
+.assurance-module .obligation-grids tbody th{text-align:left;font-size:11px;color:var(--ink);font-weight:500;padding:11px 13px;text-transform:none;letter-spacing:normal;background:transparent;border-bottom:1px solid var(--line)}
+.assurance-module .obligation-grids td{padding:11px 13px;text-align:right;font-size:11px;font-variant-numeric:tabular-nums;border-bottom:1px solid var(--line)}
+.assurance-module .obligation-grids thead th:not(:first-child){text-align:right}
+.assurance-module .obligation-grids tfoot{font-weight:700;background:var(--teal-soft)}
+.assurance-module .obligation-grids tfoot th{padding:11px 13px;text-align:left;background:var(--teal-soft);color:var(--ink);font-size:11px;text-transform:none;letter-spacing:normal}
+@media(max-width:1100px){.assurance-module .obligation-summary-grids{grid-template-columns:1fr}}

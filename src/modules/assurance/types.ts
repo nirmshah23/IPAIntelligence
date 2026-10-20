@@ -13,7 +13,7 @@ export type Item = {
     history: { at: string; text: string }[];
   };
   eligibility?: {
-    stage: "Prepare" | "Reconcile" | "Ready to submit" | "Awaiting payer" | "Rejected" | "Accepted";
+    stage: "Awaiting file" | "Reconcile" | "Ready to process" | "Processing" | "Rejected" | "Accepted";
     file?: { reference: string; expected: number; actual: number; invalid: number; duplicates: number; schemaPassed: boolean; encrypted: boolean };
     receipt?: string;
     acknowledgment?: string;
