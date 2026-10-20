@@ -1,4 +1,4 @@
-export type Page = "dashboard" | "analytics" | "providers" | "compliance" | "adequacy" | "dofr" | "referrals" | "facilities" | "actions" | "relations" | "workplans" | "measurements";
+export type Page = "disenrollments" | "dashboard" | "analytics" | "providers" | "compliance" | "adequacy" | "dofr" | "referrals" | "facilities" | "actions" | "relations" | "workplans" | "measurements";
 export type ProviderFilterPreset = "all" | "active-in-network" | "accepting-patients" | "attestations-due" | "pending-credentialing";
 export type ComplianceFilterPreset = "all" | "below-target" | "evaluated" | "improvement-plans";
 export type AdequacyFilterPreset = "gaps" | "providers-needed" | "member-impact" | "recruitment";
@@ -53,6 +53,7 @@ export type Provider = {
   periodData: Record<string, ProviderPeriodData>;
 };
 export type Action = {
+  providerId?: string;
   id: string;
   category: string;
   subject: string;

@@ -1,3 +1,7 @@
+import { seedDisenrollmentActions } from "./disenrollmentData";
+import { Disenrollments } from "./Disenrollments";
+import { RelationsDashboard, matchesTaskFilter, taskFilterLabel, taskToday } from "./RelationsDashboard";
+import { actionDateToday, actionTimeliness, timelinessBuckets } from "./actionTimeliness";
 import { TaskForm } from "./TaskForm";
 import { RiskForm, WorkPlanRisks, riskType } from "./WorkPlanRisks";
 import { seedActionCenter, mergeActionCenterSeed } from "./seedActions";
@@ -24,6 +28,7 @@ const reportingPeriods = [
 const nav: { id: Page; label: string; short: string }[] = [
   { id: "dashboard", label: "Membership workflow", short: "EX" },
   { id: "providers", label: "Provider Directory", short: "PD" },
+  { id: "disenrollments", label: "Disenrollments", short: "DE" },
   { id: "compliance", label: "Preventive Care", short: "PC" },
   { id: "adequacy", label: "Network Adequacy", short: "NA" },
   { id: "dofr", label: "DOFR Expansion", short: "DR" },
@@ -301,6 +306,10 @@ export default function App({ page, setPage, navigation = {}, analyticsView = "p
   const [setupSource, setSetupSource] = useState<string | "direct" | null>(null);
 
   useEffect(() => localStorage.setItem("ipa-providers", JSON.stringify(providers)), [providers]);
+  // Reconcile saved demo links with the current provider roster, including after hot reload.
+  useEffect(() => {
+    setActions(current => mergeActionCenterSeed(current, seedDisenrollmentActions(providers)));
+  }, [providers]);
   useEffect(() => localStorage.setItem("ipa-actions", JSON.stringify(actions)), [actions]);
   useEffect(() => localStorage.setItem("ipa-work-plans", JSON.stringify(workPlans)), [workPlans]);
   useEffect(() => { if (!toast) return; const id = window.setTimeout(() => setToast(""), 2800); return () => clearTimeout(id); }, [toast]);
@@ -378,6 +387,7 @@ export default function App({ page, setPage, navigation = {}, analyticsView = "p
           <div className="top-actions"><button className="icon-btn" title="Help" onClick={() => window.alert("This prototype uses fictional healthcare data. Select a module from the sidebar to explore its workflow.")}>?</button><div className="profile"><span>MO</span><div><b>Maya Ortiz</b><small>Network Administrator</small></div></div></div>
         </header>
         <main>
+          {page === "disenrollments" && <Disenrollments providers={providers} period={reportingPeriod} actions={actions} openActions={providerId => setPage("actions", { filter: new URLSearchParams({ category: "Disenrollments", ...(providerId ? { providerId } : {}) }).toString() })} />}
           {page === "dashboard" && <Dashboard actions={actions} onOpenActions={(filter) => setPage("actions", { filter })} />}
           {page === "analytics" && <Analytics view={analyticsView} providers={providers} period={reportingPeriod} complianceTarget={complianceTarget} />}
           {page === "providers" && <Providers providers={providers} period={reportingPeriod} preset={providerPreset} setProviders={setProviders} setToast={setToast} />}
@@ -398,6 +408,7 @@ export default function App({ page, setPage, navigation = {}, analyticsView = "p
 }
 
 function Dashboard({ actions, onOpenActions }: { actions: Action[]; onOpenActions: (filter?: string) => void }) {
+  const today = actionDateToday();
   const activeActions = actions.filter(action => !["Completed", "Cancelled", "Dismissed"].includes(action.status));
   const priorities = ["High", "Medium", "Low"];
   const statuses = ["New", "Under Review", "Approved", "In Progress", "In Execution", "On Hold"];
@@ -431,6 +442,14 @@ function Dashboard({ actions, onOpenActions }: { actions: Action[]; onOpenAction
           {!rows.length && <Empty title="No actions yet" message="Actions will appear here when added to Action Center." />}
         </section>;
       })}
+      <section className="table-card" aria-labelledby="action-timeliness">
+        <div className="card-head"><div><h2 id="action-timeliness">Actions by timeliness</h2><p>Target dates as of {today} (India time). Next 7 days excludes today.</p></div></div>
+        <div className="table-wrap"><table>
+          <thead><tr><th scope="col">Target date</th><th scope="col" className="action-count">Action count</th></tr></thead>
+          <tbody>{timelinessBuckets.map(bucket => <tr key={bucket.id}><th scope="row">{bucket.label}</th><td className="action-count">{countLink(activeActions.filter(action => actionTimeliness(action.due, today) === bucket.id).length, { timeliness: bucket.id, asOf: today }, bucket.label)}</td></tr>)}</tbody>
+          <tfoot><tr><th scope="row">Total</th><td className="action-count">{countLink(activeActions.length, {}, "all")}</td></tr></tfoot>
+        </table></div>
+      </section>
       <section className="table-card action-priority-matrix" aria-labelledby="action-status-priority">
         <div className="card-head"><h2 id="action-status-priority">Actions by status and priority</h2></div>
         <div className="table-wrap"><table>
@@ -665,8 +684,8 @@ const memberCounts: Record<string, number> = { Alameda: 4780, "Contra Costa": 39
 function adequacyRows(providers: Provider[], threshold: number) {
   return counties.flatMap((county) => specialties.slice(0, 6).map((specialty) => {
     const members = Math.round(memberCounts[county] * ({ "Primary Care": 1, Cardiology: .22, Dermatology: .15, Endocrinology: .12, Gastroenterology: .16, Neurology: .1 }[specialty] || .1));
-    const count = providers.filter((p) => p.type === "Individual" && p.county === county && p.specialty === specialty && p.status === "Active" && p.network === "In Network").length;
-    return { county, specialty, members, count, ratio: count ? Math.round(members / count) : members, gap: Math.max(0, Math.ceil(members / threshold) - count) };
+    const count = Math.max(1, providers.filter((p) => p.type === "Individual" && p.county === county && p.specialty === specialty && p.status === "Active" && p.network === "In Network").length);
+    return { county, specialty, members, count, ratio: Math.round(members / count), gap: Math.max(0, Math.ceil(members / threshold) - count) };
   }));
 }
 function Adequacy({ providers, preset, threshold, setThreshold, addAction }: { providers: Provider[]; preset: AdequacyFilterPreset; threshold: number; setThreshold: (n: number) => void; addAction: (c: string, s: string, r: string) => void }) {
@@ -788,20 +807,21 @@ function ProviderRelations({ view, filter, onOpenRegister, workPlans, setWorkPla
   useEffect(() => { setFocus(filter || "All"); setSearch(""); }, [filter, view]);
   const [search, setSearch] = useState("");
   const selected = workPlans.find((plan) => plan.id === selectedId);
-  const overdueTasks = workPlans.flatMap((plan) => plan.tasks.map((task) => ({ plan, task }))).filter(({ task }) => task.status !== "Completed" && task.due < "2026-04-15");
-  const attention = workPlans.filter((plan) => ["At Risk", "Blocked", "Overdue"].includes(plan.health));
-  const shown = workPlans.filter((plan) => `${plan.name} ${plan.owner} ${plan.department} ${plan.id}`.toLowerCase().includes(search.toLowerCase())).filter((plan) => focus === "All" || focus === "Active" ? focus === "All" || !["Completed", "Cancelled"].includes(plan.status) : focus === "Attention" ? ["At Risk", "Blocked", "Overdue"].includes(plan.health) : focus === "Decisions" ? plan.risks.some((risk) => risk.decisionFrom && risk.status !== "Resolved") : focus === "Overdue tasks" ? overdueTasks.some(({ plan: match }) => match.id === plan.id) : focus === "Outcomes below target" ? plan.kpis.some((kpi) => ["At Risk", "Target Missed"].includes(kpi.status)) : plan.health === focus);
+  const overdueTasks = workPlans.flatMap((plan) => plan.tasks.map((task) => ({ plan, task }))).filter(({ task }) => task.status !== "Completed" && task.due < taskToday());
+  const taskParams = new URLSearchParams(focus);
+  const isTaskFilter = taskParams.get("tasks") === "1";
+  const shown = workPlans.filter((plan) => `${plan.name} ${plan.owner} ${plan.department} ${plan.id}`.toLowerCase().includes(search.toLowerCase())).filter((plan) => isTaskFilter ? plan.tasks.some(task => matchesTaskFilter(task, taskParams)) : focus === "All" || focus === "Active" ? focus === "All" || !["Completed", "Cancelled"].includes(plan.status) : focus === "Attention" ? ["At Risk", "Blocked", "Overdue"].includes(plan.health) : focus === "Decisions" ? plan.risks.some((risk) => risk.decisionFrom && risk.status !== "Resolved") : focus === "Overdue tasks" ? overdueTasks.some(({ plan: match }) => match.id === plan.id) : focus === "Outcomes below target" ? plan.kpis.some((kpi) => ["At Risk", "Target Missed"].includes(kpi.status)) : plan.health === focus);
   const updatePlan = (updated: WorkPlan) => setWorkPlans((current) => current.map((plan) => plan.id === updated.id ? updated : plan));
   if (view === "measurements") return <><PageHeader eyebrow="Provider relations" title="Measurement setup" description="Define reusable outcome measurements for your work plans." /><MeasurementSetup measurements={measurements} onChange={setMeasurements} /></>;
   if (view === "workplans" && selected) return <WorkPlanDetail key={selected.id} measurements={measurements} plan={selected} source={actions.find((action) => action.id === selected.actionId)} onBack={() => setSelectedId(null)} onUpdate={updatePlan} openSourceAction={openSourceAction} />;
   return <div className={view === "relations" ? "workflow-page" : undefined}>
-    <PageHeader eyebrow="Provider relations" title={view === "relations" ? "Relations workflow" : "Work plan"} description="Turn approved opportunities into accountable cross-functional execution and measurable follow-up." action={<Button onClick={onCreate}>Create work plan</Button>} />
+    <PageHeader eyebrow="Provider relations" title={view === "relations" ? "Relations workflow" : "Work plan"} description="Turn approved opportunities into accountable cross-functional execution and measurable follow-up." action={view === "workplans" ? <Button onClick={onCreate}>Create work plan</Button> : undefined} />
     {view === "relations" ? <>
-    <div className="stat-grid provider-relations-kpis"><Stat label="Active work plans" value={workPlans.filter((plan) => !["Completed", "Cancelled"].includes(plan.status)).length} note="Execution portfolio" onClick={() => onOpenRegister("Active")} /><Stat label="At risk / blocked" value={attention.length} note="Needs intervention" tone="red" onClick={() => onOpenRegister("Attention")} /><Stat label="Overdue tasks" value={overdueTasks.length} note="Past due and incomplete" tone="amber" onClick={() => onOpenRegister("Overdue tasks")} /><Stat label="Outcomes below target" value={workPlans.flatMap((plan) => plan.kpis).filter((kpi) => ["At Risk", "Target Missed"].includes(kpi.status)).length} note="Measurement review needed" tone="amber" onClick={() => onOpenRegister("Outcomes below target")} /><Stat label="Decisions required" value={workPlans.flatMap((plan) => plan.risks).filter((risk) => risk.decisionFrom && risk.status !== "Resolved").length} note="Executive or department decision" tone="red" onClick={() => onOpenRegister("Decisions")} /></div>
-    <div className="relations-layout"><section className="card"><div className="card-head"><div><h2>Needs attention</h2><p>Blockers, missed dates, and decisions</p></div></div><div className="attention-list">{attention.map((plan) => <button onClick={() => setSelectedId(plan.id)} key={plan.id}><Badge tone={toneFor(plan.health)}>{plan.health}</Badge><span><b>{plan.name}</b><small>{plan.risks.find((risk) => risk.status !== "Resolved")?.issue || "Schedule or KPI risk"}</small></span></button>)}</div></section></div>
+    <RelationsDashboard plans={workPlans} onOpen={filter => { setSelectedId(null); onOpenRegister(filter); }} />
     </> : <>
     <div className="section-heading"><div><h2>Work plan register</h2><p>Execution status and health are tracked separately.</p></div><Badge tone="info">Illustrative demo data</Badge></div>
-    <div className="toolbar"><TextInput value={search} onChange={setSearch} placeholder="Search plan, owner, department…" /><Select label="Portfolio view" value={focus} onChange={setFocus}><option>All</option><option>Active</option><option>Attention</option><option>Decisions</option><option>Overdue tasks</option><option>Outcomes below target</option><option>On Track</option><option>At Risk</option><option>Blocked</option></Select><Button variant="ghost" onClick={() => { setFocus("All"); setSearch(""); }}>Clear filters</Button><span className="result-count">{shown.length} work plans</span></div>
+    {isTaskFilter && <p className="task-filter-summary" role="status">{taskFilterLabel(taskParams)}. Showing work plans containing matching tasks.</p>}
+    <div className="toolbar"><TextInput value={search} onChange={setSearch} placeholder="Search plan, owner, department…" /><Select label="Portfolio view" value={focus} onChange={setFocus}>{isTaskFilter && <option value={focus}>Selected task counts</option>}<option>All</option><option>Active</option><option>Attention</option><option>Decisions</option><option>Overdue tasks</option><option>Outcomes below target</option><option>On Track</option><option>At Risk</option><option>Blocked</option></Select><Button variant="ghost" onClick={() => { setFocus("All"); setSearch(""); }}>Clear filters</Button><span className="result-count">{shown.length} work plans</span></div>
     <section className="table-card"><div className="table-wrap"><PaginatedTable><thead><tr><th>Work plan</th><th>Source action</th><th>Owner / department</th><th>Priority</th><th>Target date</th><th>Execution</th><th>Health</th><th>Progress</th><th>Updated</th></tr></thead><tbody>{shown.map((plan) => <tr className="clickable-row" onClick={() => setSelectedId(plan.id)} key={plan.id}><td><b>{plan.name}</b><small>{plan.id}</small></td><td>{plan.actionId || "Directly created"}</td><td><b>{plan.owner}</b><small>{plan.department}</small></td><td><Badge tone={toneFor(plan.priority)}>{plan.priority}</Badge></td><td>{plan.due}</td><td><Badge tone={toneFor(plan.status)}>{plan.status}</Badge></td><td><Badge tone={toneFor(plan.health)}>{plan.health}</Badge></td><td><b>{plan.progress}%</b><small>{plan.tasks.filter((task) => task.status === "Completed").length}/{plan.tasks.length} tasks</small></td><td>{plan.lastUpdated}</td></tr>)}</tbody></PaginatedTable></div>{!shown.length && <Empty title="No work plans found" message="Clear filters or create a new work plan." />}</section>
     </>}
   </div>;
@@ -851,7 +871,7 @@ function Actions({ filter, onClearFilter, actions, setActions, workPlans, focusI
   useEffect(() => { if (!focusId) return; const action = actions.find((item) => item.id === focusId); if (action) setSelected(action); clearFocus(); }, [focusId, actions, clearFocus]);
   useEffect(() => { setStatus("All"); }, [filter]);
   const filterParams = new URLSearchParams(filter || "");
-  const filterKeys = ["owner", "department", "priority", "status", "category"] as const;
+  const filterKeys = ["owner", "department", "priority", "status", "category", "providerId"] as const;
   // Continue to support previously bookmarked single-dimension filters.
   if (filter && !filter.includes("=")) {
     const separator = filter.indexOf(":");
@@ -859,9 +879,12 @@ function Actions({ filter, onClearFilter, actions, setActions, workPlans, focusI
   }
   const activeOnly = filterParams.get("active") === "1";
   const criteria = filterKeys.filter(key => filterParams.has(key));
-  const validFilter = activeOnly || criteria.length > 0;
-  const filterLabel = [activeOnly ? "Active actions" : "", ...criteria.map(key => `${key === "category" ? "Screen of origin" : key.charAt(0).toUpperCase() + key.slice(1)}: ${filterParams.get(key)}`)].filter(Boolean).join(" / ");
-  const filteredActions = actions.filter(action => (!activeOnly || !["Completed", "Cancelled", "Dismissed"].includes(action.status)) && criteria.every(key => (action[key]?.trim() || "Unassigned") === filterParams.get(key)));
+  const timeliness = timelinessBuckets.find(bucket => bucket.id === filterParams.get("timeliness"));
+  const requestedDate = filterParams.get("asOf") || "";
+  const asOf = actionTimeliness(requestedDate, actionDateToday()) === 'undated' ? actionDateToday() : requestedDate;
+  const validFilter = activeOnly || criteria.length > 0 || !!timeliness;
+  const filterLabel = [activeOnly ? "Active actions" : "", timeliness ? `${timeliness.label} (as of ${asOf})` : "", ...criteria.map(key => `${key === "category" ? "Screen of origin" : key.charAt(0).toUpperCase() + key.slice(1)}: ${filterParams.get(key)}`)].filter(Boolean).join(" / ");
+  const filteredActions = actions.filter(action => (!activeOnly || !["Completed", "Cancelled", "Dismissed"].includes(action.status)) && (!timeliness || actionTimeliness(action.due, asOf) === timeliness.id) && criteria.every(key => (action[key]?.trim() || "Unassigned") === filterParams.get(key)));
   const shown = filteredActions.filter((action) => status === "All" || action.status === status);
   const update = (action: Action) => { setActions((current) => current.map((item) => item.id === action.id ? action : item)); setSelected(action); };
   const linked = selected ? workPlans.find((plan) => plan.id === selected.workPlanId || plan.actionId === selected.id) : undefined;

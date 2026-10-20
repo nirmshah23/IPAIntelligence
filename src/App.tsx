@@ -8,7 +8,8 @@ type Module = 'intelligence' | 'relations' | 'assurance' | 'reports';
 type Navigation = { planId?: string; filter?: string };
 const intelligencePages: [IntelligencePage, string][] = [
   ['dashboard', 'Membership workflow'],
-  ['providers', 'Provider directory'], ['compliance', 'Preventive compliance'],
+  ['providers', 'Provider directory'], ['disenrollments', 'Disenrollments'],
+  ['compliance', 'Preventive compliance'],
   ['adequacy', 'Network adequacy'], ['dofr', 'DOFR Expansion'],
   ['referrals', 'Referral intelligence'], ['facilities', 'Facilities'],
   ['actions', 'Action center'],

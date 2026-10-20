@@ -1,3 +1,4 @@
+import { seedDisenrollmentActions } from './disenrollmentData';
 import type { Action, Provider, WorkPlan } from './types';
 
 const providerTopics = [
@@ -60,10 +61,19 @@ export function seedActionCenter(baseActions: Action[], basePlans: WorkPlan[], p
       });
     }
   }
-  return { actions, workPlans };
+  return { actions: [...actions, ...seedDisenrollmentActions(providers)], workPlans };
 }
 
 export function mergeActionCenterSeed<T extends { id: string }>(stored: T[], seeds: T[]): T[] {
   const existing = new Set(stored.map(item => item.id));
-  return [...stored.map(item => ({ ...seeds.find(seed => seed.id === item.id), ...item })), ...seeds.filter(seed => !existing.has(seed.id))];
+  const merged = stored.map(item => {
+    const seed = seeds.find(seed => seed.id === item.id);
+    // Refresh the original demo finding while preserving workflow edits.
+    if (seed && item.id.startsWith('ACT-DIS-')) {
+      const { providerId, subject, reason, evidence } = seed as T & Action;
+      return { ...seed, ...item, providerId, subject, reason, evidence };
+    }
+    return { ...seed, ...item };
+  });
+  return [...merged, ...seeds.filter(seed => !existing.has(seed.id))];
 }
