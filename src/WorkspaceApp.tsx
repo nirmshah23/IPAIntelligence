@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react';
+import { WorkspaceBanner } from './components/WorkspaceBanner';
 import Intelligence, { type Page as IntelligencePage } from './modules/intelligence/App';
 import Assurance, { type Page as AssurancePage } from './modules/assurance/App';
 
@@ -60,6 +61,7 @@ export default function App() {
     intelligence: 'dashboard' as IntelligencePage,
     assurance: 'overview' as AssurancePage,
   }));
+  const [reportingTarget, setReportingTarget] = useState<HTMLDivElement | null>(null);
   const [goalTarget, setGoalTarget] = useState<HTMLDivElement | null>(null);
   const [complianceTarget, setComplianceTarget] = useState<HTMLDivElement | null>(null);
   const [navigationOpen, setNavigationOpen] = useState(false);
@@ -109,16 +111,19 @@ export default function App() {
           </div>
         </div>)}
       </nav>
-      <div className="workspace-note">Prototype ? Fictional data ? Saved in this browser</div>
+      
     </aside>
     {navigationOpen && <button className="workspace-overlay" aria-label="Close navigation" onClick={() => setNavigationOpen(false)} />}
     <div id="workspace-content" className="workspace-content" tabIndex={-1}>
+      <WorkspaceBanner>
+        <div className="intelligence-module min-h-0! min-w-0! bg-transparent!" ref={setReportingTarget} hidden={route.module === 'workflows' || route.module === 'assurance' || (route.module === 'reports' && route.reports === 'compliance')} />
+        {(route.module === 'workflows' || route.module === 'assurance' || (route.module === 'reports' && route.reports === 'compliance')) && <span className="text-sm font-semibold">{route.module === 'workflows' ? 'Workflows' : route.module === 'reports' ? 'Reports & Analytics' : 'Operational Compliance'}</span>}
+      </WorkspaceBanner>
       <div hidden={route.module !== 'workflows'} className="px-4 py-8 md:px-8">
-        <header className="mb-8"><p className="text-xs font-bold uppercase tracking-widest text-teal-700">Workspace overview</p><h1 className="mt-2 text-3xl font-bold text-slate-900">Workflows</h1><p className="mt-2 text-sm text-slate-600">Membership goals, provider relations tasks, and compliance obligations in one place.</p><p className="mt-2 text-xs text-slate-500">Fictional demo data. Saved in this browser only. Data is specific to this browser and site address and is removed when site data is cleared.</p></header>
         <div className="intelligence-module" ref={setGoalTarget} />
         <div className="assurance-module mt-10!" ref={setComplianceTarget} />
       </div>
-      <section className="intelligence-module" aria-label={route.module === "reports" ? "Reports & Analytics" : route.module === "relations" ? "Provider Relations" : "Membership Management"} hidden={route.module === 'workflows' || route.module === 'assurance' || (route.module === 'reports' && route.reports === 'compliance')}><Intelligence dashboardTarget={goalTarget} analyticsView={route.reports === "membership" ? "membership" : "providers"} page={route.module === "reports" ? 'analytics' : route.module === "relations" ? route.relations : route.intelligence} navigation={route.navigation} setPage={(page, navigation) => navigate(page === 'analytics' ? 'reports' : page === "relations" || page === "workplans" || page === "measurements" || page === "project-templates" ? "relations" : "intelligence", page, navigation)} /></section>
+      <section className="intelligence-module" aria-label={route.module === "reports" ? "Reports & Analytics" : route.module === "relations" ? "Provider Relations" : "Membership Management"} hidden={route.module === 'workflows' || route.module === 'assurance' || (route.module === 'reports' && route.reports === 'compliance')}><Intelligence reportingTarget={reportingTarget} dashboardTarget={goalTarget} analyticsView={route.reports === "membership" ? "membership" : "providers"} page={route.module === "reports" ? 'analytics' : route.module === "relations" ? route.relations : route.intelligence} navigation={route.navigation} setPage={(page, navigation) => navigate(page === 'analytics' ? 'reports' : page === "relations" || page === "workplans" || page === "measurements" || page === "project-templates" ? "relations" : "intelligence", page, navigation)} /></section>
       <section className="assurance-module" aria-label={route.module === 'reports' ? 'Reports & Analytics' : 'Operational Compliance'} hidden={route.module !== 'assurance' && !(route.module === 'reports' && route.reports === 'compliance')}><Assurance dashboardTarget={complianceTarget} page={route.module === 'reports' ? 'reports' : route.assurance} setPage={page => navigate(page === 'reports' ? 'reports' : 'assurance', page)} /></section>
     </div>
   </div>;

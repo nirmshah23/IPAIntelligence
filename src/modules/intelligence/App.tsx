@@ -280,7 +280,7 @@ function Empty({ title, message }: { title: string; message: string }) {
   return <div className="empty"><strong>{title}</strong><p>{message}</p></div>;
 }
 
-export default function App({ page, setPage, navigation = {}, analyticsView = "providers", dashboardTarget }: { dashboardTarget?: HTMLElement | null; analyticsView?: "providers" | "membership"; page: Page; setPage: (page: Page, navigation?: PageNavigation) => void; navigation?: PageNavigation }) {
+export default function App({ page, setPage, navigation = {}, analyticsView = "providers", reportingTarget, dashboardTarget }: { reportingTarget?: HTMLElement | null; dashboardTarget?: HTMLElement | null; analyticsView?: "providers" | "membership"; page: Page; setPage: (page: Page, navigation?: PageNavigation) => void; navigation?: PageNavigation }) {
   const [providers, setProviders] = useState<Provider[]>(() => {
     try {
       const stored = JSON.parse(localStorage.getItem("ipa-providers") || "");
@@ -421,11 +421,7 @@ export default function App({ page, setPage, navigation = {}, analyticsView = "p
         <div className="sidebar-foot"><Badge tone="info">Mock data environment</Badge><p>Q1 2026 performance period</p></div>
       </aside>
       <div className="main-shell">
-        <header className="topbar">
-          <button className="mobile-menu" onClick={() => setSidebarOpen(!sidebarOpen)}>Menu</button>
-          {page !== "relations" && page !== "workplans" && page !== "measurements" && <label className="period period-picker"><span>Reporting period</span><select value={reportingPeriod} onChange={(event) => setReportingPeriod(event.target.value)}>{reportingPeriods.map((period) => <option value={period.id} key={period.id}>{period.label}</option>)}</select></label>}
-          <div className="top-actions"><button className="icon-btn" title="Help" onClick={() => window.alert("This prototype uses fictional healthcare data. Select a module from the sidebar to explore its workflow.")}>?</button><div className="profile"><span>MO</span><div><b>Maya Ortiz</b><small>Network Administrator</small></div></div></div>
-        </header>
+        {reportingTarget && page !== "relations" && page !== "workplans" && page !== "measurements" && createPortal(<label className="period period-picker m-0! text-[#667572]"><span>Reporting period</span><select aria-label="Reporting period" value={reportingPeriod} onChange={event => setReportingPeriod(event.target.value)}>{reportingPeriods.map(period => <option value={period.id} key={period.id}>{period.label}</option>)}</select></label>, reportingTarget)}
         <main>{storageError && <p role="alert" className="mb-4 rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800">{storageError}</p>}{templatesLoadError && <p className="mb-4 rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">{templatesLoadError}</p>}<ActionHistoryContext.Provider value={actions}>
           {page === "disenrollments" && <Disenrollments providers={providers} period={reportingPeriod} addAction={(subject, reason, priority, context) => addAction("Disenrollments", subject, reason, priority, context)} />}
           {page === "enrollments" && <Enrollments providers={providers} period={reportingPeriod} addAction={(subject, reason, priority, context) => addAction("Enrollments", subject, reason, priority, context)} />}
@@ -459,7 +455,7 @@ function Dashboard({ actions, onOpenActions }: { actions: Action[]; onOpenAction
     { title: "Goals by department", label: "Department", key: "department" },
     { title: "Goals by priority", label: "Priority", key: "priority", values: ["High", "Medium", "Low"] },
     { title: "Goals by status", label: "Status", key: "status", values: statuses },
-    { title: "Goals by type", label: "Screen of origin", key: "category" },
+    { title: "Goals by type", label: "Goal type", key: "category", values: ["Enrollments", "Disenrollments", "Provider Education", "Recruitment", "Referral Optimization", "Facility Retention", "Facility Improvement", "Replacement Review"] },
   ];
   return <div className="workflow-page">
     <div className="mb-5"><h2 className="text-2xl font-bold">Membership workflow</h2><p className="mt-2 text-sm text-slate-500">Counts across {activeActions.length} active goals in Goal Center.</p></div>
@@ -924,9 +920,9 @@ function ProviderRelations({ view, filter, onOpenRegister, workPlans, setWorkPla
     {view === "relations" ? <>
     <RelationsDashboard plans={workPlans} onOpen={filter => { setSelectedId(null); onOpenRegister(filter); }} />
     </> : <>
-    <div className="section-heading"><div><h2>Project register</h2><p>Execution status and health are tracked separately.</p></div><Badge tone="info">Illustrative demo data</Badge></div>
+    
     {isTaskFilter && <p className="task-filter-summary" role="status">{taskFilterLabel(taskParams)}. Showing projects containing matching tasks.</p>}
-    <div className="toolbar"><TextInput value={search} onChange={setSearch} placeholder="Search project, owner, department…" /><Select label="Portfolio view" value={focus} onChange={setFocus}>{isTaskFilter && <option value={focus}>Selected task counts</option>}<option>All</option><option>Active</option><option>Attention</option><option>Overdue tasks</option><option>Outcomes below target</option><option>On Track</option><option>At Risk</option><option>Blocked</option></Select><Button variant="ghost" onClick={() => { setFocus("All"); setSearch(""); }}>Clear filters</Button><span className="result-count">{shown.length} projects</span></div>
+    <div className="toolbar"><TextInput value={search} onChange={setSearch} placeholder="Search project, owner, department…" /><Select label="Project status" value={focus} onChange={setFocus}>{isTaskFilter && <option value={focus}>Selected task counts</option>}<option>All</option><option>Active</option><option>Attention</option><option>Overdue tasks</option><option>Outcomes below target</option><option>On Track</option><option>At Risk</option><option>Blocked</option></Select><Button variant="ghost" onClick={() => { setFocus("All"); setSearch(""); }}>Clear filters</Button><span className="result-count">{shown.length} projects</span></div>
     <section className="table-card"><div className="table-wrap"><PaginatedTable><thead><tr><th>Project</th><th>Source goal</th><th>Owner / department</th><th>Priority</th><th>Target date</th><th>Execution</th><th>Health</th><th>Progress</th><th>Updated</th></tr></thead><tbody>{shown.map((plan) => <tr className="clickable-row" onClick={() => setSelectedId(plan.id)} key={plan.id}><td><b>{plan.name}</b><small>{plan.id}</small></td><td>{plan.actionId || "Directly created"}</td><td><b>{plan.owner}</b><small>{plan.department}</small></td><td><Badge tone={toneFor(plan.priority)}>{plan.priority}</Badge></td><td>{plan.due}</td><td><Badge tone={toneFor(plan.status)}>{plan.status}</Badge></td><td><Badge tone={toneFor(plan.health)}>{plan.health}</Badge></td><td><b>{plan.progress}%</b><small>{plan.tasks.filter((task) => task.status === "Completed").length}/{plan.tasks.length} tasks</small></td><td>{plan.lastUpdated}</td></tr>)}</tbody></PaginatedTable></div>{!shown.length && <Empty title="No projects found" message="Clear filters or create a new project." />}</section>
     </>}
   </div>;

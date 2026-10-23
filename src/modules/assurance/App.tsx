@@ -183,19 +183,19 @@ export default function App({ page, setPage, dashboardTarget }: { dashboardTarge
   const current=items.find(i=>i.id===selected)!;
   const pageTitle:Record<Page,string>={overview:"Compliance workflow",queue:"Obligations",detail:current?.title||"Occurrence detail",exceptions:"Exceptions & escalations",calendar:"Compliance calendar",editor:"Obligation definition editor",reports:"Compliance"};
 
-  return <>{dashboardTarget && createPortal(<section className="workflow-page" aria-label="Compliance workflow">{toast && <p role="status" className="mb-4 rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{toast}</p>}<Overview items={items} go={(p,f)=>{setPage(p);setFilter(f||"Open")}}/></section>, dashboardTarget)}<div className="app">
+  return <>{dashboardTarget && createPortal(<section className="workflow-page" aria-label="Compliance workflow">{toast && <p role="status" className="mb-4 rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{toast}</p>}<Overview items={items}/></section>, dashboardTarget)}<div className="app">
     <aside>
       <div className="brand"><div className="brandmark">OA</div><div><strong>Operational<br/>Assurance</strong><small>Redwood Valley IPA</small></div></div>
       <nav>{nav.map(([key,label,icon])=><button key={key} className={page===key?"active":""} onClick={()=>setPage(key as Page)}><Icon name={icon}/><span>{label}</span>{key==="exceptions"&&<b>3</b>}</button>)}</nav>
       <div className="sidebar-foot"><div className="mini-avatar">AM</div><div><strong>Alex Morgan</strong><small>Operations Manager</small></div><span>⌄</span></div>
     </aside>
     <main>
-      <header><div className="header-actions"><span className="demo">DEMO ENVIRONMENT</span><button className="icon-btn" onClick={()=>flash("You have 3 unresolved escalations")}><Icon name="bell"/><i>3</i></button><button className="help" onClick={()=>flash("Assurance help center opened")}>?</button></div></header>
+
       <div className="content">
         <div className="crumbs"><span>{page === "reports" ? "Reports & Analytics" : "Operational Compliance"}</span><b>/</b><span>{pageTitle[page]}</span></div>
         {toast&&<div className="toast"><span>✓</span>{toast}</div>}
         <div className={page === "overview" ? undefined : "workflow-page obligation-portal"}>
-        {page==="overview"&&<Overview items={items} go={(p,f)=>{setPage(p);setFilter(f||"Open")}}/>}
+        {page==="overview"&&<Overview items={items}/>}
         {page==="queue"&&<WorkQueue items={items} scope={filter} setScope={setFilter} open={open}/>}
         {page==="detail"&&(current.category==="Credentialing" ? <CredentialingDetail key={current.id} item={current} update={update} back={()=>setPage("queue")}/> : current.category==="Eligibility" ? <EligibilityDetail key={current.id} item={current} update={update} back={()=>setPage("queue")}/> : isQuality(current) ? <QualityDetail key={current.id} item={current} update={update} back={()=>setPage("queue")}/> : workflowDefinitions[current.category] ? <WorkflowDetail key={current.id} item={current} update={update} back={()=>setPage("queue")}/> : <Detail item={current} tab={detailTab} setTab={setDetailTab} update={update} flash={flash}/>)}
         {page==="exceptions"&&<Exceptions items={items} ack={ack} setAck={setAck} remediation={remediation} setRemediation={setRemediation} update={update} open={open} flash={flash}/>}
@@ -226,8 +226,8 @@ function ObligationGrids({items}:{items:Item[]}) {
   </DashboardTabs>;
 }
 
-function Overview({items,go}:{items:Item[],go:(p:Page,f?:string)=>void}) {
-  return <div className="workflow-page"><div className="mb-5 flex flex-wrap items-center justify-between gap-4"><div><h2 className="text-2xl font-bold">Compliance workflow</h2><p className="mt-2 text-sm text-slate-500">Counts across {items.length} obligations.</p></div><Button onClick={()=>go("queue")}>Review obligations</Button></div>
+function Overview({items}:{items:Item[]}) {
+  return <div className="workflow-page"><div className="mb-5 flex flex-wrap items-center justify-between gap-4"><div><h2 className="text-2xl font-bold">Compliance workflow</h2><p className="mt-2 text-sm text-slate-500">Counts across {items.length} obligations.</p></div></div>
     <ObligationGrids items={items}/>
   </div>;
 }
