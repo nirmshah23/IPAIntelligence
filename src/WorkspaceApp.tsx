@@ -110,7 +110,7 @@ export default function App() {
           </button>
           <div className="navigation-children" id={`navigation-${module}`} hidden={!expanded[module]}>
             {pages.map(([id, label]) => <button key={id} aria-current={route.module === module && (route[module] === id || (id === 'membership' && route[module] === 'member-details')) ? 'page' : undefined} onClick={() => navigate(module, id)}>{label}</button>)}
-            {module === 'relations' && <a className="mx-0 my-0.5 flex items-center justify-between rounded-md px-2.5 py-2 text-sm text-inherit no-underline hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2" href="./ProviderRelationsMobileApp/index.html" target="_blank" rel="noopener noreferrer" aria-label="Mobile app (opens in a new tab)">Mobile app <span aria-hidden="true">↗</span></a>}
+            {module === 'relations' && <a className="block w-full rounded-[6px] border-0 bg-transparent px-3 py-[9px] text-left text-xs text-[#d5e4e1] no-underline hover:bg-[#1c5149] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#74d1be]" href="./ProviderRelationsMobileApp/index.html" target="_blank" rel="noopener noreferrer" aria-label="Mobile app (opens in a new tab)">Mobile app</a>}
           </div>
         </div>)}
       </nav>
