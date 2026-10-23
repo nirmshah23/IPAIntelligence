@@ -13,7 +13,7 @@ const facilityTopics = [
   ['Facility Quality', 'Improve patient experience follow-up', 'Patient survey responses show communication gaps', 'Increase patient experience score by five points'],
   ['Facility Improvement', 'Reduce avoidable readmissions', 'Utilization review identified repeat admissions requiring review', 'Reduce avoidable readmissions by 10%'],
   ['Directory Validation', 'Validate facility services and access', 'Facility service roster requires current attestation', 'Verify service lines, access hours, and referral contacts'],
-  ['DOFR Review', 'Review facility utilization and financial risk', 'Facility expenditure trends require financial and clinical review', 'Deliver an approved utilization and risk recommendation'],
+  ['Referral Optimization', 'Review facility utilization and financial risk', 'Facility expenditure trends require financial and clinical review', 'Deliver an approved utilization and risk recommendation'],
 ] as const;
 
 export function seedActionCenter(baseActions: Action[], basePlans: WorkPlan[], providers: Provider[]) {
@@ -31,7 +31,7 @@ export function seedActionCenter(baseActions: Action[], basePlans: WorkPlan[], p
     const linked = ['In Execution', 'On Hold', 'Completed'].includes(status);
     const id = `ACT-${1042 + baseActions.length + i}`;
     const owner = ['Maya Ortiz', 'Jordan Lee', 'Priya Shah', 'Evan Brooks'][cohortIndex % 4];
-    const department = category === 'DOFR Review' ? 'Finance' : category === 'Directory Validation' || category === 'Recruitment' ? 'Provider Relations' : 'Quality Improvement';
+    const department = facility && category === 'Referral Optimization' ? 'Finance' : category === 'Directory Validation' || category === 'Recruitment' ? 'Provider Relations' : 'Quality Improvement';
     const due = `2026-${String(5 + cohortIndex % 8).padStart(2, '0')}-${String(10 + cohortIndex % 18).padStart(2, '0')}`;
     const action: Action = {
       id, category, subject: `${title}: ${entity.name}`, reason: `${reason} for ${entity.name} (${entity.id}), ${entity.county} County.`,
@@ -57,7 +57,7 @@ export function seedActionCenter(baseActions: Action[], basePlans: WorkPlan[], p
           status: completed || index === 0 || (status === 'In Execution' && index === 1) ? 'Completed' : status === 'On Hold' ? 'Blocked' : 'In Progress',
         })),
         kpis: [], risks: status === 'On Hold' ? [{ id: `${id}-R1`, type: 'Blocker', issue: 'Awaiting source evidence', impact: 'Review cannot proceed until evidence is supplied', severity: 'Medium', owner, due, status: 'Open' }] : [],
-        activity: [{ date: '2026-04-15', text: `Work plan linked to ${id}`, by: owner }],
+        activity: [{ date: '2026-04-15', text: `Project linked to ${id}`, by: owner }],
       });
     }
   }

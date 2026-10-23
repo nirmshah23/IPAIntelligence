@@ -1,4 +1,4 @@
-export type Page = "disenrollments" | "dashboard" | "analytics" | "providers" | "compliance" | "adequacy" | "dofr" | "referrals" | "facilities" | "actions" | "relations" | "workplans" | "measurements";
+export type Page = "enrollments" | "disenrollments" | "dashboard" | "analytics" | "providers" | "compliance" | "adequacy" | "dofr" | "referrals" | "facilities" | "actions" | "relations" | "workplans" | "measurements" | "project-templates";
 export type ProviderFilterPreset = "all" | "active-in-network" | "accepting-patients" | "attestations-due" | "pending-credentialing";
 export type ComplianceFilterPreset = "all" | "below-target" | "evaluated" | "improvement-plans";
 export type AdequacyFilterPreset = "gaps" | "providers-needed" | "member-impact" | "recruitment";
@@ -66,6 +66,7 @@ export type Action = {
   approval?: "Pending" | "Approved" | "Declined";
   department?: string;
   expectedResult?: string;
+  goalDescription?: string;
   evidence?: string;
   start?: string;
   nextReview?: string;

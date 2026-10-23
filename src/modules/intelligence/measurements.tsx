@@ -35,7 +35,7 @@ export function MeasurementSetup({ measurements, onChange }: { measurements: Mea
     setDraft(null);
   };
   const shown = measurements.filter(item => `${item.name} ${item.owner} ${item.source}`.toLowerCase().includes(search.toLowerCase()));
-  return <><div className="section-heading"><div><h2>Measurement library</h2><p>Reusable definitions for work plan outcomes. Updates apply to future additions.</p></div><button className="btn btn-primary" onClick={() => { setDraft({ ...blank }); setError(""); }}>Create measurement</button></div>
+  return <><div className="section-heading"><div><h2>Measurement library</h2><p>Reusable definitions for project outcomes. Updates apply to future additions.</p></div><button className="btn btn-primary" onClick={() => { setDraft({ ...blank }); setError(""); }}>Create measurement</button></div>
     <div className="toolbar"><label className="control"><span>Search measurements</span><input aria-label="Search measurements" placeholder="Search measurements, owner, source…" value={search} onChange={event => setSearch(event.target.value)} /></label><button className="btn btn-ghost" onClick={() => setSearch("")}>Clear filters</button><span className="result-count">{shown.length} measurements</span></div><section className="table-card">
     <div className="table-wrap"><PaginatedTable><thead><tr><th>Measurement</th><th>Unit</th><th>Target direction</th><th>Data source</th><th>Owner</th><th>Action</th></tr></thead><tbody>{shown.map(item => <tr key={item.id}><td><b>{item.name}</b></td><td>{item.unit}</td><td>{item.direction === "increase" ? "Higher is better" : "Lower is better"}</td><td>{item.source}</td><td>{item.owner}</td><td><button className="btn btn-ghost" onClick={() => { setDraft({ ...item }); setError(""); }}>Edit</button></td></tr>)}</tbody></PaginatedTable></div>
     {!shown.length && <div className="empty"><strong>No measurements found</strong><p>Change your search or create a measurement.</p></div>}</section>
@@ -59,13 +59,19 @@ export function OutcomeMeasurements({ plan, measurements, save }: { plan: WorkPl
   const [error, setError] = useState("");
   const [recording, setRecording] = useState<WorkKpi | null>(null);
   const [actual, setActual] = useState("");
+  const [editing, setEditing] = useState<WorkKpi | null>(null);
+  const [editBaseline, setEditBaseline] = useState("");
+  const [editTarget, setEditTarget] = useState("");
+  const [editActual, setEditActual] = useState("");
+  const [editPeriod, setEditPeriod] = useState("");
+  const [editOwner, setEditOwner] = useState("");
   const available = measurements.filter(item => !plan.kpis.some(kpi => kpi.measurementId === item.id));
   const selected = measurements.find(item => item.id === measurementId);
   const add = (event: FormEvent) => {
     event.preventDefault();
     if (!selected || !baseline.trim() || !target.trim() || !Number.isFinite(Number(baseline)) || !Number.isFinite(Number(target)) || !period.trim() || !owner.trim() || owner.trim() === "Unassigned") return setError("Select a measurement and enter valid baseline, target, period, and accountable owner.");
     if (selected.unit === "%" && [Number(baseline), Number(target)].some(value => value < 0 || value > 100)) return setError("Percentage values must be between 0 and 100.");
-    if (plan.kpis.some(kpi => kpi.measurementId === selected.id)) return setError("This measurement is already on the plan.");
+    if (plan.kpis.some(kpi => kpi.measurementId === selected.id)) return setError("This measurement is already on the project.");
     const kpi: WorkKpi = { ...selected, id: crypto.randomUUID(), measurementId: selected.id, baseline: Number(baseline), target: Number(target), actual: 0, period: period.trim(), owner: owner.trim(), status: "Not Yet Measured" };
     save({ kpis: [...plan.kpis, kpi] }, `Outcome measurement added: ${kpi.name}`);
     setAdding(false);
@@ -79,14 +85,52 @@ export function OutcomeMeasurements({ plan, measurements, save }: { plan: WorkPl
     save({ kpis: plan.kpis.map(kpi => kpi.id === recording.id ? { ...kpi, actual: value, status: outcomeStatus(value, kpi.target, kpi.baseline, direction) } : kpi) }, `Result recorded: ${recording.name} = ${value}${recording.unit}`);
     setRecording(null);
   };
-  return <><div className="section-heading"><div><h2>Outcome measurements</h2><p>Track observed results against plan-specific targets.</p></div><button className="btn btn-primary" disabled={!available.length} onClick={() => { setAdding(true); setMeasurementId(""); setBaseline(""); setTarget(""); setPeriod(""); setOwner(plan.owner); setError(""); }}>Add outcome measure</button></div>
+  const startEdit = (kpi: WorkKpi) => {
+    setEditing(kpi);
+    setEditBaseline(String(kpi.baseline));
+    setEditTarget(String(kpi.target));
+    setEditActual(kpi.status === "Not Yet Measured" ? "" : String(kpi.actual));
+    setEditPeriod(kpi.period);
+    setEditOwner(kpi.owner);
+    setError("");
+  };
+  const edit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!editing || !editBaseline.trim() || !editTarget.trim() || !editPeriod.trim() || !editOwner.trim() || editOwner.trim() === "Unassigned") return setError("Enter valid baseline, target, period, and accountable owner.");
+    const values = [editBaseline, editTarget, ...(editActual.trim() ? [editActual] : [])].map(Number);
+    if (values.some(value => !Number.isFinite(value))) return setError("Baseline, target, and latest actual must be valid numbers.");
+    if (editing.unit === "%" && values.some(value => value < 0 || value > 100)) return setError("Percentage values must be between 0 and 100.");
+    const baselineValue = Number(editBaseline);
+    const targetValue = Number(editTarget);
+    const actualValue = editActual.trim() ? Number(editActual) : 0;
+    const direction = editing.direction || (targetValue < baselineValue ? "decrease" : "increase");
+    const updated = {
+      ...editing,
+      baseline: baselineValue,
+      target: targetValue,
+      actual: actualValue,
+      period: editPeriod.trim(),
+      owner: editOwner.trim(),
+      status: editActual.trim() ? outcomeStatus(actualValue, targetValue, baselineValue, direction) : "Not Yet Measured" as const,
+    };
+    save({ kpis: plan.kpis.map(kpi => kpi.id === editing.id ? updated : kpi) }, `Outcome measurement updated: ${editing.name}`);
+    setEditing(null);
+  };
+  return <><div className="section-heading"><div><h2>Outcome measurements</h2><p>Track observed results against project-specific targets.</p></div><button className="btn btn-primary" disabled={!available.length} onClick={() => { setAdding(true); setMeasurementId(""); setBaseline(""); setTarget(""); setPeriod(""); setOwner(plan.owner); setError(""); }}>Add outcome measure</button></div>
     {!available.length && <p className="measurement-note">Create more measurements in Provider Relations / Measurement setup.</p>}
     <div className="toolbar"><label className="control"><span>Search outcome measures</span><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search KPI, source, owner, period…" /></label><label className="control"><span>Status</span><select value={status} onChange={event => setStatus(event.target.value)}>{["All", "Not Yet Measured", "On Track", "At Risk", "Target Met", "Target Missed"].map(value => <option key={value}>{value}</option>)}</select></label><button className="btn btn-ghost" onClick={() => { setSearch(""); setStatus("All"); }}>Clear filters</button><span className="result-count">{shown.length} outcome measures</span></div>
-    <section className="table-card"><div className="table-wrap"><PaginatedTable><thead><tr><th>KPI / source</th><th>Baseline</th><th>Target</th><th>Latest actual</th><th>Period</th><th>Owner</th><th>Status</th><th>Update</th></tr></thead><tbody>{shown.map(kpi => <tr key={kpi.id}><td><b>{kpi.name}</b><small>{kpi.source}</small></td><td>{kpi.baseline} {kpi.unit}</td><td>{kpi.target} {kpi.unit}<small>{(kpi.direction || (kpi.target < kpi.baseline ? "decrease" : "increase")) === "decrease" ? "At or below" : "At or above"}</small></td><td>{kpi.status === "Not Yet Measured" ? "Not yet measured" : `${kpi.actual} ${kpi.unit}`}</td><td>{kpi.period}</td><td>{kpi.owner}</td><td><span className={`badge badge-${kpi.status === "Target Met" ? "good" : kpi.status === "On Track" ? "info" : ["At Risk", "Target Missed"].includes(kpi.status) ? "warn" : "neutral"}`}><i />{kpi.status}</span></td><td><button className="btn btn-secondary" onClick={() => { setRecording(kpi); setActual(kpi.status === "Not Yet Measured" ? "" : String(kpi.actual)); setError(""); }}>Record result</button></td></tr>)}</tbody></PaginatedTable></div>
+    <section className="table-card"><div className="table-wrap"><PaginatedTable><thead><tr><th>KPI / source</th><th>Baseline</th><th>Target</th><th>Latest actual</th><th>Period</th><th>Owner</th><th>Status</th><th>Update</th></tr></thead><tbody>{shown.map(kpi => <tr key={kpi.id}><td><b>{kpi.name}</b><small>{kpi.source}</small></td><td>{kpi.baseline} {kpi.unit}</td><td>{kpi.target} {kpi.unit}<small>{(kpi.direction || (kpi.target < kpi.baseline ? "decrease" : "increase")) === "decrease" ? "At or below" : "At or above"}</small></td><td>{kpi.status === "Not Yet Measured" ? "Not yet measured" : `${kpi.actual} ${kpi.unit}`}</td><td>{kpi.period}</td><td>{kpi.owner}</td><td><span className={`badge badge-${kpi.status === "Target Met" ? "good" : kpi.status === "On Track" ? "info" : ["At Risk", "Target Missed"].includes(kpi.status) ? "warn" : "neutral"}`}><i />{kpi.status}</span></td><td><div className="row-actions"><button className="btn btn-ghost" onClick={() => startEdit(kpi)}>Edit</button><button className="btn btn-secondary" onClick={() => { setRecording(kpi); setActual(kpi.status === "Not Yet Measured" ? "" : String(kpi.actual)); setError(""); }}>Record result</button></div></td></tr>)}</tbody></PaginatedTable></div>
     {!shown.length && <div className="empty"><strong>{plan.kpis.length ? "No matching outcome measures" : "No outcome measures yet"}</strong><p>{plan.kpis.length ? "Change your search or clear filters." : "Select Add outcome measure to set a baseline, target, reporting period, and owner."}</p></div>}</section>
     {adding && <div className="modal-backdrop"><form className="modal" role="dialog" aria-modal="true" aria-labelledby="outcome-title" onSubmit={add}><div className="modal-head"><h2 id="outcome-title">Add outcome measure</h2><button type="button" className="close" aria-label="Close" onClick={() => setAdding(false)}>×</button></div><div className="form-grid"><label className="control">Measurement<select required value={measurementId} onChange={event => { setMeasurementId(event.target.value); setOwner(measurements.find(item => item.id === event.target.value)?.owner || plan.owner); }}><option value="">Select measurement</option>{available.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
       {selected && <p className="outcome-context">{selected.unit} · {selected.direction === "increase" ? "Higher" : "Lower"} is better · {selected.source}</p>}
       <label className="control">Baseline<input required type="number" step="any" value={baseline} onChange={event => setBaseline(event.target.value)} /></label><label className="control">Target<input required type="number" step="any" value={target} onChange={event => setTarget(event.target.value)} /></label><label className="control">Reporting period<input required placeholder="e.g. Q4 2026" value={period} onChange={event => setPeriod(event.target.value)} /></label><label className="control">Accountable owner<input required value={owner} onChange={event => setOwner(event.target.value)} /></label></div>{error && <p className="measurement-error" role="alert">{error}</p>}<div className="modal-actions"><button type="button" className="btn btn-secondary" onClick={() => setAdding(false)}>Cancel</button><button type="submit" className="btn btn-primary">Add measure</button></div></form></div>}
     {recording && <div className="modal-backdrop"><form className="modal" role="dialog" aria-modal="true" aria-labelledby="result-title" onSubmit={record}><div className="modal-head"><h2 id="result-title">Record result: {recording.name}</h2><button type="button" className="close" aria-label="Close" onClick={() => setRecording(null)}>×</button></div><div className="form-stack"><label className="control">Latest actual ({recording.unit})<input autoFocus required type="number" step="any" value={actual} onChange={event => setActual(event.target.value)} /></label></div>{error && <p className="measurement-error" role="alert">{error}</p>}<div className="modal-actions"><button type="button" className="btn btn-secondary" onClick={() => setRecording(null)}>Cancel</button><button type="submit" className="btn btn-primary">Save result</button></div></form></div>}
+    {editing && <div className="modal-backdrop"><form className="modal" role="dialog" aria-modal="true" aria-labelledby="edit-outcome-title" onSubmit={edit}><div className="modal-head"><div><p className="eyebrow">Outcome measurement</p><h2 id="edit-outcome-title">Edit {editing.name}</h2></div><button type="button" className="close" aria-label="Close" onClick={() => setEditing(null)}>×</button></div><div className="form-grid">
+      <label className="control">Baseline ({editing.unit})<input autoFocus required type="number" step="any" value={editBaseline} onChange={event => setEditBaseline(event.target.value)} /></label>
+      <label className="control">Target ({editing.unit})<input required type="number" step="any" value={editTarget} onChange={event => setEditTarget(event.target.value)} /></label>
+      <label className="control">Latest actual ({editing.unit}) <span className="task-field-hint">Required for completed closure</span><input type="number" step="any" value={editActual} onChange={event => setEditActual(event.target.value)} /></label>
+      <label className="control">Reporting period<input required value={editPeriod} onChange={event => setEditPeriod(event.target.value)} /></label>
+      <label className="control">Accountable owner<input required value={editOwner} onChange={event => setEditOwner(event.target.value)} /></label>
+    </div>{error && <p className="measurement-error" role="alert">{error}</p>}<div className="modal-actions"><button type="button" className="btn btn-secondary" onClick={() => setEditing(null)}>Cancel</button><button type="submit" className="btn btn-primary">Save changes</button></div></form></div>}
   </>;
 }

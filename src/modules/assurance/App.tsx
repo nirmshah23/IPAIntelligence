@@ -118,6 +118,24 @@ export default function App({ page, setPage }: { page: Page; setPage: (page: Pag
           ? { ...item, ...entry, id: item.id, category: item.category } : item;
       });
     } catch { /* Retain initial workflows if storage is unavailable. */ }
+    try {
+      const saved = JSON.parse(readAssuranceStorage("escalations") || "{}") as Record<string, Partial<Item>>;
+      restored = restored.map(item => {
+        const entry = saved?.[item.id];
+        return entry ? {
+          ...item,
+          owner: entry.owner || item.owner,
+          due: entry.due || item.due,
+          execution: entry.execution || item.execution,
+          next: entry.next || item.next,
+          remediationPlan: entry.remediationPlan,
+          delayReason: entry.delayReason,
+          proposedDue: entry.proposedDue,
+          previousDue: entry.previousDue,
+          escalationAcknowledgedAt: entry.escalationAcknowledgedAt,
+        } : item;
+      });
+    } catch { /* Keep escalation responses session-only if saved data is unavailable. */ }
     return syncEligibilityDependency(restored);
   });
   useEffect(() => {
@@ -135,6 +153,14 @@ export default function App({ page, setPage }: { page: Page; setPage: (page: Pag
   useEffect(() => {
     try { localStorage.setItem("arcwell-workflows-v1", JSON.stringify(Object.fromEntries(items.filter(item => item.workflow).map(item => [item.id, item])))); }
     catch { setToast("Browser storage unavailable. Workflow changes will last for this session only."); }
+  }, [items]);
+  useEffect(() => {
+    try {
+      localStorage.setItem("arcwell-escalations-v1", JSON.stringify(Object.fromEntries(items.filter(item => item.remediationPlan || item.delayReason || item.escalationAcknowledgedAt).map(item => [item.id, {
+        owner: item.owner, due: item.due, execution: item.execution, next: item.next, remediationPlan: item.remediationPlan,
+        delayReason: item.delayReason, proposedDue: item.proposedDue, previousDue: item.previousDue, escalationAcknowledgedAt: item.escalationAcknowledgedAt,
+      }]))));
+    } catch { setToast("Browser storage unavailable. Escalation changes will last for this session only."); }
   }, [items]);
   const [selected,setSelected] = useState(seed[1].id);
   const [filter,setFilter] = useState("Open");
@@ -250,19 +276,25 @@ function Exceptions({items,update,open,flash}:{items:Item[],ack:boolean,setAck:(
   const [search,setSearch] = useState("");
   const [risk,setRisk] = useState("All");
   const [selected,setSelected] = useState<string|null>(null);
-  const [drafts,setDrafts] = useState<Record<string,{owner:string,plan:string,ack:boolean}>>({});
+  const [drafts,setDrafts] = useState<Record<string,{owner:string,plan:string,reason:string,nextDue:string,ack:boolean}>>({});
   const dialog = useRef<HTMLDialogElement>(null);
   const exceptions=items.filter(i=>i.verification==="Failed"||i.deadline==="Overdue"||i.execution==="Blocked");
   const shown=exceptions.filter(i=>(risk==="All"||i.risk===risk)&&`${i.id} ${i.title} ${i.owner} ${i.payer}`.toLowerCase().includes(search.trim().toLowerCase()));
   const item=items.find(i=>i.id===selected);
-  const draft=item ? drafts[item.id]||{owner:item.owner,plan:"",ack:false} : null;
-  const change=(patch:Partial<{owner:string,plan:string,ack:boolean}>)=>{if(item&&draft)setDrafts(current=>({...current,[item.id]:{...draft,...patch}}))};
+  const draft=item ? drafts[item.id]||{owner:item.owner,plan:item.remediationPlan||"",reason:item.delayReason||"",nextDue:item.proposedDue||"",ack:false} : null;
+  const change=(patch:Partial<{owner:string,plan:string,reason:string,nextDue:string,ack:boolean}>)=>{if(item&&draft)setDrafts(current=>({...current,[item.id]:{...draft,...patch}}))};
   useEffect(()=>{if(selected)dialog.current?.showModal();else dialog.current?.close()},[selected]);
   function save(acknowledge:boolean) {
     if(!item||!draft)return;
     if(!draft.plan.trim())return flash("Add a remediation plan before saving.");
-    if(acknowledge&&!draft.ack)return;
-    update(item.id,{owner:draft.owner,...(acknowledge?{execution:"In progress",next:draft.plan.trim()}: {})},acknowledge?"Escalation acknowledged. Verification criteria must still pass before resolution.":"Remediation plan saved");
+    if(acknowledge&&(!draft.ack||!draft.reason.trim()||!draft.nextDue))return flash("Add the delay reason and next due date before acknowledging.");
+    const response: Partial<Item> = { owner:draft.owner, remediationPlan:draft.plan.trim(), delayReason:draft.reason.trim(), proposedDue:draft.nextDue };
+    if (acknowledge) {
+      const time = item.due.includes(" · ") ? ` · ${item.due.split(" · ").slice(1).join(" · ")}` : "";
+      const nextDate = new Date(`${draft.nextDue}T12:00:00`).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+      Object.assign(response,{execution:"In progress",next:draft.plan.trim(),previousDue:item.due,due:`${nextDate}${time}`,escalationAcknowledgedAt:new Date().toISOString()});
+    }
+    update(item.id,response,acknowledge?"Escalation acknowledged and linked obligation due date updated.":"Escalation response saved");
     setSelected(null);
   }
   return <div className="exceptions-page"><PageHead title="Exceptions & escalations" sub="Acknowledge, assign, remediate, and resolve verified operational exceptions"/>
@@ -277,8 +309,10 @@ function Exceptions({items,update,open,flash}:{items:Item[],ack:boolean,setAck:(
       <div className="exception-modal-body"><div className="alert-panel danger compact"><Icon name="alert"/><div><b>{item.title}</b><p>{item.next}</p></div></div>
       <label className="exception-control">Assigned owner<select value={draft.owner} onChange={e=>change({owner:e.target.value})}>{Array.from(new Set([item.owner,...items.map(i=>i.owner)])).map(owner=><option key={owner}>{owner}</option>)}</select></label>
       <label className="exception-control">Remediation plan<textarea value={draft.plan} onChange={e=>change({plan:e.target.value})} placeholder="Document corrective actions, accountable owner, and target time?"/></label>
+      <label className="exception-control">Reason for delay<textarea required value={draft.reason} onChange={e=>change({reason:e.target.value})} placeholder="Explain what caused the delay or exception."/></label>
+      <label className="exception-control">Next due date<input required type="date" value={draft.nextDue} onChange={e=>change({nextDue:e.target.value})}/><small>Current obligation due date: {item.due}</small></label>
       <label className="exception-check"><input type="checkbox" checked={draft.ack} onChange={e=>change({ack:e.target.checked})}/><span>I acknowledge this escalation and accept accountability for remediation.</span></label><p className="exception-guard">Resolution is unavailable until configured verification criteria pass.</p></div>
-      <div className="exception-modal-actions"><Button kind="secondary" onClick={()=>setSelected(null)}>Cancel</Button><Button kind="secondary" disabled={!draft.plan.trim()} onClick={()=>save(false)}>Save plan</Button><Button disabled={!draft.ack||!draft.plan.trim()} onClick={()=>save(true)}>Acknowledge escalation</Button></div></>}
+      <div className="exception-modal-actions"><Button kind="secondary" onClick={()=>setSelected(null)}>Cancel</Button><Button kind="secondary" disabled={!draft.plan.trim()} onClick={()=>save(false)}>Save response</Button><Button disabled={!draft.ack||!draft.plan.trim()||!draft.reason.trim()||!draft.nextDue} onClick={()=>save(true)}>Acknowledge escalation</Button></div></>}
     </dialog>
   </div>;
 }

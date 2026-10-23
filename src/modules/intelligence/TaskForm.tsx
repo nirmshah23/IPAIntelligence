@@ -42,7 +42,7 @@ export function TaskForm({ plan, initial, onClose, onSave }: { plan: WorkPlan; i
   };
   return <dialog ref={dialog} className="modal task-dialog" aria-labelledby="task-title" aria-describedby="task-description" onCancel={onClose}>
     <form onSubmit={submit}>
-      <div className="modal-head"><div><p className="eyebrow">Work plan task</p><h2 id="task-title">{initial ? "Edit task" : "Add task"}</h2><p id="task-description" className="task-description">{initial ? "Update task details for" : "Define the next step for"} {plan.name}.</p></div><button type="button" className="close" aria-label="Close task form" onClick={onClose}>×</button></div>
+      <div className="modal-head"><div><p className="eyebrow">Project task</p><h2 id="task-title">{initial ? "Edit task" : "Add task"}</h2><p id="task-description" className="task-description">{initial ? "Update task details for" : "Define the next step for"} {plan.name}.</p></div><button type="button" className="close" aria-label="Close task form" onClick={onClose}>×</button></div>
       <div className="form-grid">
         <label className="control task-full-width">Task name <input autoFocus required maxLength={200} value={draft.name} onChange={event => setDraft({ ...draft, name: event.target.value })} placeholder="e.g. Review provider outreach results" /></label>
         <label className="control">Owner<select value={draft.owner} onChange={event => setDraft({ ...draft, owner: event.target.value })}>{owners.map(owner => <option key={owner}>{owner}</option>)}</select></label>
@@ -58,7 +58,7 @@ export function TaskForm({ plan, initial, onClose, onSave }: { plan: WorkPlan; i
             <label className="control">Note {index + 1}<textarea required rows={3} value={note.text} onChange={event => updateNote(note.id, { text: event.target.value })} placeholder="Enter note details" /></label>
           </div>)}
         </section>
-        {draft.due > plan.due && <p className="task-full-width task-date-note" role="status">This task is due after the work plan target date ({plan.due}).</p>}
+        {draft.due > plan.due && <p className="task-full-width task-date-note" role="status">This task is due after the project target date ({plan.due}).</p>}
         {error && <p className="task-full-width measurement-error" role="alert">{error}</p>}
       </div>
       <div className="modal-actions"><button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button><button type="submit" className="btn btn-primary">{initial ? "Save changes" : "Add task"}</button></div>
