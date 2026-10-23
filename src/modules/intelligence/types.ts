@@ -1,4 +1,4 @@
-export type Page = "enrollments" | "disenrollments" | "dashboard" | "analytics" | "providers" | "compliance" | "adequacy" | "dofr" | "referrals" | "facilities" | "actions" | "relations" | "workplans" | "measurements" | "project-templates";
+export type Page = "area-adequacy" | "member-details" | "membership" | "enrollments" | "disenrollments" | "dashboard" | "analytics" | "providers" | "compliance" | "adequacy" | "dofr" | "referrals" | "facilities" | "actions" | "relations" | "workplans" | "measurements" | "project-templates";
 export type ProviderFilterPreset = "all" | "active-in-network" | "accepting-patients" | "attestations-due" | "pending-credentialing";
 export type ComplianceFilterPreset = "all" | "below-target" | "evaluated" | "improvement-plans";
 export type AdequacyFilterPreset = "gaps" | "providers-needed" | "member-impact" | "recruitment";
@@ -53,6 +53,8 @@ export type Provider = {
   periodData: Record<string, ProviderPeriodData>;
 };
 export type Action = {
+  memberId?: string;
+  specialty?: string;
   createdAt?: string;
   providerId?: string;
   id: string;
@@ -86,4 +88,4 @@ export type WorkPlan = {
 };
 
 
-export type PageNavigation = { planId?: string; filter?: string };
+export type PageNavigation = { planId?: string; filter?: string; memberId?: string; period?: string };

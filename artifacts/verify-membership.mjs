@@ -1,0 +1,32 @@
+﻿import { chromium } from '@playwright/test';
+const browser = await chromium.launch({channel:'msedge',headless:true});
+const page = await browser.newPage();
+const errors=[]; page.on('pageerror', e=>errors.push(e.message));
+await page.goto('http://127.0.0.1:4173/#/intelligence/compliance');
+await page.getByRole('heading',{name:'Preventive Care Compliance',exact:true}).waitFor();
+const assigned = page.getByRole('button',{name:/View \d+ assigned members/}).first();
+const label=await assigned.getAttribute('aria-label');
+await assigned.click();
+await page.getByRole('heading',{name:'Membership',exact:true}).waitFor();
+if(await page.locator('dialog[open]').count()) throw Error('Modal opened');
+const provider=await page.getByRole('combobox',{name:/^Assigned PCP/}).inputValue();
+if(!provider) throw Error('Provider filter missing');
+const count=await page.getByRole('status').innerText();
+await page.locator('tbody button:visible').first().click();
+await page.getByRole('region',{name:'Member profile'}).waitFor();
+await page.reload();
+await page.getByRole('heading',{name:'Membership',exact:true}).waitFor();
+if(await page.getByRole('combobox',{name:/^Assigned PCP/}).inputValue()!==provider) throw Error('Filter lost on reload');
+await page.getByLabel('Search members',{exact:true}).fill('no-such-member');
+await page.getByText('No members match these filters.',{exact:false}).waitFor();
+await page.getByRole('button',{name:'Reset filters',exact:true}).click();
+await page.setViewportSize({width:390,height:844});
+await page.screenshot({path:'artifacts/membership-mobile.png',fullPage:true});
+const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);
+if(overflow) throw Error('Page overflows on mobile');
+const missing=await page.request.get('http://127.0.0.1:4173/nonexistent-membership-route');
+console.log(JSON.stringify({label,count,provider,errors,missingStatus:missing.status()}));
+if(errors.length || missing.status()!==404) throw Error('Verification failed');
+await browser.close();
+
+
