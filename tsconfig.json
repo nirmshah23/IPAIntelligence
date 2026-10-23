@@ -29,6 +29,8 @@
     ]
   },
   "include": [
+    "ProviderRelationsMobileApp/src/**/*.ts",
+    "ProviderRelationsMobileApp/src/**/*.tsx",
     "src/**/*.ts",
     "src/**/*.tsx",
     "vite.config.ts",

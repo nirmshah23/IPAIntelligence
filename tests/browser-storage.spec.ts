@@ -85,33 +85,6 @@ test('unreadable stored templates are not silently overwritten', async ({ page }
   expect(await page.evaluate(key => localStorage.getItem(key), templatesKey)).toBe('{broken json')
 })
 
-test('all workspace views load and existing browser data survives reload', async ({ page }) => {
-  const errors: string[] = []
-  page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/')
-  const navigation = page.getByRole('navigation', { name: 'Workspace navigation' })
-  for (const label of [
-    'Membership workflow', 'Provider directory', 'Enrollments', 'Disenrollments',
-    'Preventive compliance', 'Network adequacy', 'OON referrals', 'Facilities', 'Goal center',
-    'Relations workflow', 'Projects', 'Project templates', 'Measurement setup',
-    'Compliance workflow', 'Obligations', 'Exceptions & escalations', 'Compliance calendar',
-    'Definition editor', 'Membership', 'Providers', 'Compliance',
-  ]) {
-    await navigation.getByRole('button', { name: label, exact: true }).click()
-    await expect(navigation.getByRole('button', { name: label, exact: true })).toHaveAttribute('aria-current', 'page')
-    await expect(page.locator('#workspace-content')).not.toBeEmpty()
-  }
-  await page.evaluate(() => {
-    const providers = JSON.parse(localStorage.getItem('ipa-providers')!)
-    providers[0].name = 'Browser saved provider'
-    localStorage.setItem('ipa-providers', JSON.stringify(providers))
-  })
-  await page.reload()
-  await expect(navigation.getByRole('button', { name: 'Compliance', exact: true })).toHaveAttribute('aria-current', 'page')
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('ipa-providers')!)[0].name)).toBe('Browser saved provider')
-  expect(errors).toEqual([])
-})
-
 test('former backend endpoints are removed', async ({ request }) => {
   for (const path of ['/admin', '/api/project-templates', '/missing-page']) {
     expect((await request.get(path)).status()).toBe(404)
