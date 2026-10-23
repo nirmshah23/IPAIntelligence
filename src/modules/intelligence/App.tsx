@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { ActionHistoryContext, LatestAction } from "./LatestAction";
 import { seedDisenrollmentActions } from "./disenrollmentData";
 import { Disenrollments } from "./Disenrollments";
@@ -279,7 +280,7 @@ function Empty({ title, message }: { title: string; message: string }) {
   return <div className="empty"><strong>{title}</strong><p>{message}</p></div>;
 }
 
-export default function App({ page, setPage, navigation = {}, analyticsView = "providers" }: { analyticsView?: "providers" | "membership"; page: Page; setPage: (page: Page, navigation?: PageNavigation) => void; navigation?: PageNavigation }) {
+export default function App({ page, setPage, navigation = {}, analyticsView = "providers", dashboardTarget }: { dashboardTarget?: HTMLElement | null; analyticsView?: "providers" | "membership"; page: Page; setPage: (page: Page, navigation?: PageNavigation) => void; navigation?: PageNavigation }) {
   const [providers, setProviders] = useState<Provider[]>(() => {
     try {
       const stored = JSON.parse(localStorage.getItem("ipa-providers") || "");
@@ -312,6 +313,7 @@ export default function App({ page, setPage, navigation = {}, analyticsView = "p
   const [complianceTarget, setComplianceTarget] = useState(75);
   const [ratioTarget, setRatioTarget] = useState(250);
   const [reportingPeriod, setReportingPeriod] = useState(reportingPeriods[0].id);
+  const [storageError, setStorageError] = useState("");
   const [toast, setToast] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [providerPreset, setProviderPreset] = useState<ProviderFilterPreset>("all");
@@ -326,13 +328,13 @@ export default function App({ page, setPage, navigation = {}, analyticsView = "p
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const [templatesLoadError, setTemplatesLoadError] = useState("");
 
-  useEffect(() => localStorage.setItem("ipa-providers", JSON.stringify(providers)), [providers]);
+  useEffect(() => { try { localStorage.setItem("ipa-providers", JSON.stringify(providers)); } catch { setStorageError("Changes could not be saved in this browser. Free browser storage or enable site storage, then reload. Changes are available for this session only."); } }, [providers]);
   // Reconcile saved demo links with the current provider roster, including after hot reload.
   useEffect(() => {
     setActions(current => mergeActionCenterSeed(current, seedDisenrollmentActions(providers)));
   }, [providers]);
-  useEffect(() => localStorage.setItem("ipa-actions", JSON.stringify(actions)), [actions]);
-  useEffect(() => localStorage.setItem("ipa-work-plans", JSON.stringify(workPlans)), [workPlans]);
+  useEffect(() => { try { localStorage.setItem("ipa-actions", JSON.stringify(actions)); } catch { setStorageError("Changes could not be saved in this browser. Free browser storage or enable site storage, then reload. Changes are available for this session only."); } }, [actions]);
+  useEffect(() => { try { localStorage.setItem("ipa-work-plans", JSON.stringify(workPlans)); } catch { setStorageError("Changes could not be saved in this browser. Free browser storage or enable site storage, then reload. Changes are available for this session only."); } }, [workPlans]);
   useEffect(() => { if (!toast) return; const id = window.setTimeout(() => setToast(""), 2800); return () => clearTimeout(id); }, [toast]);
   const refreshProjectTemplates = async () => {
     try {
@@ -404,7 +406,12 @@ export default function App({ page, setPage, navigation = {}, analyticsView = "p
   };
 
   return (
-    <div className="app-shell">
+    <>{dashboardTarget && createPortal(<div className="workflow-page space-y-10">
+      {storageError && <p role="alert" className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800">{storageError}</p>}
+      {templatesLoadError && <p className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">{templatesLoadError}</p>}
+      <section aria-label="Membership workflow"><Dashboard actions={actions} onOpenActions={filter => setPage("actions", { filter })} /></section>
+      <section aria-label="Relations workflow"><div className="mb-5"><h2 className="text-2xl font-bold">Relations workflow</h2><p className="mt-2 text-sm text-slate-500">Active project tasks across provider relations.</p></div><RelationsDashboard plans={workPlans} onOpen={filter => setPage("workplans", { filter })} /></section>
+    </div>, dashboardTarget)}<div className="app-shell">
       <aside className={sidebarOpen ? "sidebar open" : "sidebar"}>
         <div className="brand"><div className="brand-mark">AP</div><div><b>Arcwell IPA</b><span>Membership Management</span></div></div>
         <nav aria-label="Main navigation">
@@ -419,7 +426,7 @@ export default function App({ page, setPage, navigation = {}, analyticsView = "p
           {page !== "relations" && page !== "workplans" && page !== "measurements" && <label className="period period-picker"><span>Reporting period</span><select value={reportingPeriod} onChange={(event) => setReportingPeriod(event.target.value)}>{reportingPeriods.map((period) => <option value={period.id} key={period.id}>{period.label}</option>)}</select></label>}
           <div className="top-actions"><button className="icon-btn" title="Help" onClick={() => window.alert("This prototype uses fictional healthcare data. Select a module from the sidebar to explore its workflow.")}>?</button><div className="profile"><span>MO</span><div><b>Maya Ortiz</b><small>Network Administrator</small></div></div></div>
         </header>
-        <main>{templatesLoadError && <p className="mb-4 rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">{templatesLoadError}</p>}<ActionHistoryContext.Provider value={actions}>
+        <main>{storageError && <p role="alert" className="mb-4 rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800">{storageError}</p>}{templatesLoadError && <p className="mb-4 rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">{templatesLoadError}</p>}<ActionHistoryContext.Provider value={actions}>
           {page === "disenrollments" && <Disenrollments providers={providers} period={reportingPeriod} addAction={(subject, reason, priority, context) => addAction("Disenrollments", subject, reason, priority, context)} />}
           {page === "enrollments" && <Enrollments providers={providers} period={reportingPeriod} addAction={(subject, reason, priority, context) => addAction("Enrollments", subject, reason, priority, context)} />}
           {page === "dashboard" && <Dashboard actions={actions} onOpenActions={(filter) => setPage("actions", { filter })} />}
@@ -436,28 +443,28 @@ export default function App({ page, setPage, navigation = {}, analyticsView = "p
       {sidebarOpen && <button className="scrim" onClick={() => setSidebarOpen(false)} aria-label="Close navigation" />}
       {toast && <div className="toast">{toast}</div>}
       {setupSource && <WorkPlanSetup source={setupSource === "direct" ? null : actions.find((action) => action.id === setupSource) || null} templates={projectTemplates.filter(template => template.active)} onClose={() => setSetupSource(null)} onCreate={createWorkPlan} />}
-    </div>
+    </div></>
   );
 }
 
 function Dashboard({ actions, onOpenActions }: { actions: Action[]; onOpenActions: (filter?: string) => void }) {
   const today = actionDateToday();
   const activeActions = actions.filter(action => !["Completed", "Cancelled", "Dismissed"].includes(action.status));
-  const priorities = ["High", "Medium", "Low"];
+  const [dashboardTab, setDashboardTab] = useState("owner");
   const statuses = ["New", "Under Review", "Approved", "In Progress", "In Execution", "On Hold"];
   const openFiltered = (criteria: Record<string, string> = {}) => onOpenActions(new URLSearchParams({ active: "1", ...criteria }).toString());
-  const countLink = (count: number, criteria: Record<string, string>, label: string) => <button className="action-count-link" onClick={() => openFiltered(criteria)} aria-label={`View ${count} active actions: ${label}`}>{count}</button>;
+  const countLink = (count: number, criteria: Record<string, string>, label: string) => <button className="action-count-link" onClick={() => openFiltered(criteria)} aria-label={`View ${count} active goals: ${label}`}>{count}</button>;
   const groups: { title: string; label: string; key: 'owner' | 'department' | 'priority' | 'status' | 'category'; values?: string[] }[] = [
-    { title: "Actions by owner", label: "Owner", key: "owner" },
-    { title: "Actions by department", label: "Department", key: "department" },
-    { title: "Actions by priority", label: "Priority", key: "priority", values: ["High", "Medium", "Low"] },
-    { title: "Actions by status", label: "Status", key: "status", values: statuses },
-    { title: "Actions by type", label: "Screen of origin", key: "category" },
+    { title: "Goals by owner", label: "Owner", key: "owner" },
+    { title: "Goals by department", label: "Department", key: "department" },
+    { title: "Goals by priority", label: "Priority", key: "priority", values: ["High", "Medium", "Low"] },
+    { title: "Goals by status", label: "Status", key: "status", values: statuses },
+    { title: "Goals by type", label: "Screen of origin", key: "category" },
   ];
   return <div className="workflow-page">
-    <PageHeader eyebrow="Goal overview" title="Membership workflow" description={`Counts across ${activeActions.length} active goals in Goal Center.`} />
+    <div className="mb-5"><h2 className="text-2xl font-bold">Membership workflow</h2><p className="mt-2 text-sm text-slate-500">Counts across {activeActions.length} active goals in Goal Center.</p></div>
     <div className="membership-action-grids">
-      {groups.map(group => {
+      {groups.filter(group => group.key === dashboardTab).map(group => {
         const counts = new Map<string, number>((group.values || []).map(value => [value, 0]));
         activeActions.forEach(action => {
           const value = action[group.key]?.trim() || "Unassigned";
@@ -465,24 +472,21 @@ function Dashboard({ actions, onOpenActions }: { actions: Action[]; onOpenAction
         });
         const rows = [...counts.entries()];
         if (!group.values) rows.sort(([a], [b]) => a.localeCompare(b));
-        return <section className={`table-card ${group.key === "owner" ? "owner-timeliness-matrix" : ""}`} key={group.key} aria-labelledby={`action-group-${group.key}`}>
+        return <div className="col-span-full min-w-0" key={group.key}>
+          <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3 mb-4" role="tablist" aria-label="Goal dashboards">
+            {groups.map(item => <button key={item.key} type="button" role="tab" id={`goal-tab-${item.key}`} aria-selected={dashboardTab === item.key} aria-controls={`goal-panel-${item.key}`} className={`rounded-lg px-4 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 ${dashboardTab === item.key ? "bg-teal-700 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`} onClick={() => setDashboardTab(item.key)}>{item.title}</button>)}
+          </div>
+          <section role="tabpanel" id={`goal-panel-${group.key}`} className={`table-card ${group.key === "owner" ? "owner-timeliness-matrix" : ""}`} key={group.key} aria-labelledby={`goal-tab-${group.key}`}>
           <div className="card-head"><h2 id={`action-group-${group.key}`}>{group.title}</h2></div>
           <div className="table-wrap"><table>
-            <thead><tr><th scope="col">{group.label}</th>{group.key === "owner" && timelinessBuckets.map(bucket => <th scope="col" className="action-count" key={bucket.id}>{bucket.label}</th>)}<th scope="col" className="action-count">{group.key === "owner" ? "Total" : "Action count"}</th></tr></thead>
-            <tbody>{rows.map(([value, count]) => <tr key={value}><th scope="row">{value}</th>{group.key === "owner" && timelinessBuckets.map(bucket => <td className="action-count" key={bucket.id}>{countLink(activeActions.filter(action => (action.owner?.trim() || "Unassigned") === value && actionTimeliness(action.due, today) === bucket.id).length, { owner: value, timeliness: bucket.id, asOf: today }, `${value}, ${bucket.label}`)}</td>)}<td className="action-count"><button className="action-count-link" onClick={() => openFiltered({ [group.key]: value })} aria-label={`View ${count} actions for ${group.label}: ${value}`}>{count}</button></td></tr>)}</tbody>
-            <tfoot><tr><th scope="row">Total</th>{group.key === "owner" && timelinessBuckets.map(bucket => <td className="action-count" key={bucket.id}>{countLink(activeActions.filter(action => actionTimeliness(action.due, today) === bucket.id).length, { timeliness: bucket.id, asOf: today }, bucket.label)}</td>)}<td className="action-count"><button className="action-count-link" onClick={() => openFiltered()} aria-label="View all active actions">{activeActions.length}</button></td></tr></tfoot>
+            <thead><tr><th scope="col">{group.label}</th>{group.key === "owner" && timelinessBuckets.map(bucket => <th scope="col" className="action-count" key={bucket.id}>{bucket.label}</th>)}<th scope="col" className="action-count">{group.key === "owner" ? "Total" : "Goal count"}</th></tr></thead>
+            <tbody>{rows.map(([value, count]) => <tr key={value}><th scope="row">{value}</th>{group.key === "owner" && timelinessBuckets.map(bucket => <td className="action-count" key={bucket.id}>{countLink(activeActions.filter(action => (action.owner?.trim() || "Unassigned") === value && actionTimeliness(action.due, today) === bucket.id).length, { owner: value, timeliness: bucket.id, asOf: today }, `${value}, ${bucket.label}`)}</td>)}<td className="action-count"><button className="action-count-link" onClick={() => openFiltered({ [group.key]: value })} aria-label={`View ${count} goals for ${group.label}: ${value}`}>{count}</button></td></tr>)}</tbody>
+            <tfoot><tr><th scope="row">Total</th>{group.key === "owner" && timelinessBuckets.map(bucket => <td className="action-count" key={bucket.id}>{countLink(activeActions.filter(action => actionTimeliness(action.due, today) === bucket.id).length, { timeliness: bucket.id, asOf: today }, bucket.label)}</td>)}<td className="action-count"><button className="action-count-link" onClick={() => openFiltered()} aria-label="View all active goals">{activeActions.length}</button></td></tr></tfoot>
           </table></div>
           {!rows.length && <Empty title="No goals yet" message="Goals will appear here when added to Goal Center." />}
-        </section>;
+        </section></div>;
       })}
-      <section className="table-card action-priority-matrix" aria-labelledby="action-status-priority">
-        <div className="card-head"><h2 id="action-status-priority">Actions by status and priority</h2></div>
-        <div className="table-wrap"><table>
-          <thead><tr><th scope="col">Status</th>{priorities.map(priority => <th scope="col" className="action-count" key={priority}>{priority}</th>)}<th scope="col" className="action-count">Total</th></tr></thead>
-          <tbody>{statuses.map(status => <tr key={status}><th scope="row">{status}</th>{priorities.map(priority => <td className="action-count" key={priority}>{countLink(activeActions.filter(action => action.status === status && action.priority === priority).length, { status, priority }, `${status}, ${priority} priority`)}</td>)}<td className="action-count">{countLink(activeActions.filter(action => action.status === status).length, { status }, status)}</td></tr>)}</tbody>
-          <tfoot><tr><th scope="row">Total</th>{priorities.map(priority => <td className="action-count" key={priority}>{countLink(activeActions.filter(action => action.priority === priority).length, { priority }, `${priority} priority`)}</td>)}<td className="action-count">{countLink(activeActions.length, {}, "all")}</td></tr></tfoot>
-        </table></div>
-      </section>
+
     </div>
   </div>;
 }
@@ -897,18 +901,24 @@ function ProjectTemplateSetup({ templates, setTemplates, loading }: { templates:
 function ProviderRelations({ view, filter, onOpenRegister, workPlans, setWorkPlans, actions, selectedId, setSelectedId, openSourceAction, onCreate, projectTemplates, setProjectTemplates, templatesLoading }: { view: "relations" | "workplans" | "measurements" | "project-templates"; filter?: string; onOpenRegister: (filter: string) => void; workPlans: WorkPlan[]; setWorkPlans: React.Dispatch<React.SetStateAction<WorkPlan[]>>; actions: Action[]; selectedId: string | null; setSelectedId: (id: string | null) => void; openSourceAction: (id: string) => void; onCreate: () => void; projectTemplates: ProjectTemplateRecord[]; setProjectTemplates: React.Dispatch<React.SetStateAction<ProjectTemplateRecord[]>>; templatesLoading: boolean }) {
   const { measurements, setMeasurements } = useMeasurements();
 
-  const [focus, setFocus] = useState(filter || "All");
-  useEffect(() => { setFocus(filter || "All"); setSearch(""); }, [filter, view]);
+  const [focus, setFocus] = useState(filter === "Decisions" ? "All" : filter || "All");
+  useEffect(() => { setFocus(filter === "Decisions" ? "All" : filter || "All"); setSearch(""); }, [filter, view]);
   const [search, setSearch] = useState("");
   const selected = workPlans.find((plan) => plan.id === selectedId);
   const overdueTasks = workPlans.flatMap((plan) => plan.tasks.map((task) => ({ plan, task }))).filter(({ task }) => task.status !== "Completed" && task.due < taskToday());
   const taskParams = new URLSearchParams(focus);
   const isTaskFilter = taskParams.get("tasks") === "1";
-  const shown = workPlans.filter((plan) => `${plan.name} ${plan.owner} ${plan.department} ${plan.id}`.toLowerCase().includes(search.toLowerCase())).filter((plan) => isTaskFilter ? plan.tasks.some(task => matchesTaskFilter(task, taskParams)) : focus === "All" || focus === "Active" ? focus === "All" || !["Completed", "Cancelled"].includes(plan.status) : focus === "Attention" ? ["At Risk", "Blocked", "Overdue"].includes(plan.health) : focus === "Decisions" ? plan.risks.some((risk) => risk.decisionFrom && risk.status !== "Resolved") : focus === "Overdue tasks" ? overdueTasks.some(({ plan: match }) => match.id === plan.id) : focus === "Outcomes below target" ? plan.kpis.some((kpi) => ["At Risk", "Target Missed"].includes(kpi.status)) : plan.health === focus);
+  const shown = workPlans.filter((plan) => `${plan.name} ${plan.owner} ${plan.department} ${plan.id}`.toLowerCase().includes(search.toLowerCase())).filter((plan) => isTaskFilter ? plan.tasks.some(task => matchesTaskFilter(task, taskParams)) : focus === "All" || focus === "Active" ? focus === "All" || !["Completed", "Cancelled"].includes(plan.status) : focus === "Attention" ? ["At Risk", "Blocked", "Overdue"].includes(plan.health)  : focus === "Overdue tasks" ? overdueTasks.some(({ plan: match }) => match.id === plan.id) : focus === "Outcomes below target" ? plan.kpis.some((kpi) => ["At Risk", "Target Missed"].includes(kpi.status)) : plan.health === focus);
   const updatePlan = (updated: WorkPlan) => setWorkPlans((current) => current.map((plan) => plan.id === updated.id ? updated : plan));
   if (view === "measurements") return <><PageHeader eyebrow="Provider relations" title="Measurement setup" description="Define reusable outcome measurements for your projects." /><MeasurementSetup measurements={measurements} onChange={setMeasurements} /></>;
   if (view === "project-templates") return <ProjectTemplateSetup templates={projectTemplates} setTemplates={setProjectTemplates} loading={templatesLoading} />;
-  if (view === "workplans" && selected) return <WorkPlanDetail key={selected.id} measurements={measurements} plan={selected} source={actions.find((action) => action.id === selected.actionId)} onBack={() => setSelectedId(null)} onUpdate={updatePlan} openSourceAction={openSourceAction} />;
+  if (view === "workplans" && selected) return <WorkPlanDetail key={selected.id} measurements={measurements} plan={selected} source={actions.find((action) => action.id === selected.actionId)} onBack={() => setSelectedId(null)} onUpdate={updatePlan} onSaveOverview={updated => {
+    const stored = localStorage.getItem("ipa-work-plans");
+    if (stored !== null && !Array.isArray(JSON.parse(stored))) throw new Error("Unreadable saved projects");
+    const next = workPlans.map(plan => plan.id === updated.id ? updated : plan);
+    localStorage.setItem("ipa-work-plans", JSON.stringify(next));
+    setWorkPlans(next);
+  }} openSourceAction={openSourceAction} />;
   return <div className={view === "relations" ? "workflow-page" : undefined}>
     <PageHeader eyebrow="Provider relations" title={view === "relations" ? "Relations workflow" : "Projects"} description="Turn approved opportunities into accountable cross-functional execution and measurable follow-up." action={view === "workplans" ? <Button onClick={onCreate}>Create project</Button> : undefined} />
     {view === "relations" ? <>
@@ -916,30 +926,28 @@ function ProviderRelations({ view, filter, onOpenRegister, workPlans, setWorkPla
     </> : <>
     <div className="section-heading"><div><h2>Project register</h2><p>Execution status and health are tracked separately.</p></div><Badge tone="info">Illustrative demo data</Badge></div>
     {isTaskFilter && <p className="task-filter-summary" role="status">{taskFilterLabel(taskParams)}. Showing projects containing matching tasks.</p>}
-    <div className="toolbar"><TextInput value={search} onChange={setSearch} placeholder="Search project, owner, department…" /><Select label="Portfolio view" value={focus} onChange={setFocus}>{isTaskFilter && <option value={focus}>Selected task counts</option>}<option>All</option><option>Active</option><option>Attention</option><option>Decisions</option><option>Overdue tasks</option><option>Outcomes below target</option><option>On Track</option><option>At Risk</option><option>Blocked</option></Select><Button variant="ghost" onClick={() => { setFocus("All"); setSearch(""); }}>Clear filters</Button><span className="result-count">{shown.length} projects</span></div>
+    <div className="toolbar"><TextInput value={search} onChange={setSearch} placeholder="Search project, owner, department…" /><Select label="Portfolio view" value={focus} onChange={setFocus}>{isTaskFilter && <option value={focus}>Selected task counts</option>}<option>All</option><option>Active</option><option>Attention</option><option>Overdue tasks</option><option>Outcomes below target</option><option>On Track</option><option>At Risk</option><option>Blocked</option></Select><Button variant="ghost" onClick={() => { setFocus("All"); setSearch(""); }}>Clear filters</Button><span className="result-count">{shown.length} projects</span></div>
     <section className="table-card"><div className="table-wrap"><PaginatedTable><thead><tr><th>Project</th><th>Source goal</th><th>Owner / department</th><th>Priority</th><th>Target date</th><th>Execution</th><th>Health</th><th>Progress</th><th>Updated</th></tr></thead><tbody>{shown.map((plan) => <tr className="clickable-row" onClick={() => setSelectedId(plan.id)} key={plan.id}><td><b>{plan.name}</b><small>{plan.id}</small></td><td>{plan.actionId || "Directly created"}</td><td><b>{plan.owner}</b><small>{plan.department}</small></td><td><Badge tone={toneFor(plan.priority)}>{plan.priority}</Badge></td><td>{plan.due}</td><td><Badge tone={toneFor(plan.status)}>{plan.status}</Badge></td><td><Badge tone={toneFor(plan.health)}>{plan.health}</Badge></td><td><b>{plan.progress}%</b><small>{plan.tasks.filter((task) => task.status === "Completed").length}/{plan.tasks.length} tasks</small></td><td>{plan.lastUpdated}</td></tr>)}</tbody></PaginatedTable></div>{!shown.length && <Empty title="No projects found" message="Clear filters or create a new project." />}</section>
     </>}
   </div>;
 }
 
-function WorkPlanDetail({ plan, source, onBack, onUpdate, openSourceAction, measurements }: { measurements: Measurement[]; plan: WorkPlan; source?: Action; onBack: () => void; onUpdate: (plan: WorkPlan) => void; openSourceAction: (id: string) => void }) {
+function WorkPlanDetail({ plan, source, onBack, onUpdate, onSaveOverview, openSourceAction, measurements }: { measurements: Measurement[]; plan: WorkPlan; source?: Action; onBack: () => void; onUpdate: (plan: WorkPlan) => void; onSaveOverview: (plan: WorkPlan) => void; openSourceAction: (id: string) => void }) {
   const [tab, setTab] = useState("Overview");
   const [taskFormOpen, setTaskFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<WorkTask | undefined>();
   const [taskNotice, setTaskNotice] = useState("");
   const [riskDraft, setRiskDraft] = useState<WorkRisk | null>(null);
   const save = (changes: Partial<WorkPlan>, activity?: string) => onUpdate({ ...plan, ...changes, lastUpdated: new Date().toISOString().slice(0, 10), activity: activity ? [{ date: new Date().toISOString().slice(0, 10), text: activity, by: "Maya Ortiz" }, ...plan.activity] : plan.activity });
-  const updateTask = (id: string, changes: Partial<WorkTask>) => { const tasks = plan.tasks.map((task) => task.id === id ? { ...task, ...changes } : task); const progress = tasks.length ? Math.round(tasks.filter((task) => task.status === "Completed").length / tasks.length * 100) : 0; save({ tasks, progress }, `Task updated: ${tasks.find((task) => task.id === id)?.name}`); };
   const addTask = () => { setEditingTask(undefined); setTaskNotice(""); setTaskFormOpen(true); };
   const saveTask = (task: WorkTask) => {
     const tasks = editingTask ? plan.tasks.map(item => item.id === task.id ? task : item) : [...plan.tasks, task];
-    save({ tasks, progress: Math.round(tasks.filter(item => item.status === "Completed").length / tasks.length * 100) }, `Task ${editingTask ? "updated" : "added"}: ${task.name}`);
+    onSaveOverview({ ...plan, tasks, progress: Math.round(tasks.filter(item => item.status === "Completed").length / tasks.length * 100), lastUpdated: new Date().toISOString().slice(0, 10), activity: [{ date: new Date().toISOString().slice(0, 10), text: `Task ${editingTask ? "updated" : "added"}: ${task.name}`, by: "Maya Ortiz" }, ...plan.activity] });
     setTaskFormOpen(false);
     setTab("Tasks");
     setTaskNotice(`Task ${editingTask ? "updated" : "added"}: ${task.name}`);
   };
-  const addIssue = (type: "Risk" | "Blocker" | "Decision" = "Risk") => setRiskDraft({ id: "", type, issue: "", impact: "", severity: "Medium", owner: plan.owner, due: plan.nextReview || plan.due, decisionFrom: type === "Decision" ? plan.sponsor : undefined, status: "Open" });
-  const requestDecision = () => addIssue("Decision");
+  const addIssue = (type: "Risk" | "Blocker" = "Risk") => setRiskDraft({ id: "", type, issue: "", impact: "", severity: "Medium", owner: plan.owner, due: plan.nextReview || plan.due, status: "Open" });
   const saveRisk = (risk: WorkRisk) => {
     const saved = { ...risk, id: risk.id || crypto.randomUUID() };
     save({ risks: risk.id ? plan.risks.map(item => item.id === risk.id ? saved : item) : [...plan.risks, saved], ...(saved.status !== "Resolved" && plan.health === "On Track" ? { health: "At Risk" as const } : {}) }, `${risk.id ? "Issue updated" : "Issue added"}: ${saved.issue}`);
@@ -947,16 +955,16 @@ function WorkPlanDetail({ plan, source, onBack, onUpdate, openSourceAction, meas
   };  const close = () => { if (plan.tasks.some((task) => !["Completed", "Cancelled"].includes(task.status))) return window.alert("Complete or cancel all tasks before closure."); if (!window.confirm("Confirm deliverables, outcomes, risks, and reviewer approval are documented?")) return; save({ status: plan.kpis.some((kpi) => kpi.status === "Not Yet Measured") ? "Work Complete — Outcome Follow-up Pending" : "Completed", health: "On Track", progress: 100 }, "Closure review completed"); };
   return <>
     <button className="back-link" onClick={onBack}>← Back to projects</button>
-    <div className="work-plan-header"><div><p className="eyebrow">{plan.id} · {plan.template}</p><h1>{plan.name}</h1><div className="badge-row"><Badge tone={toneFor(plan.status)}>{plan.status}</Badge><Badge tone={toneFor(plan.health)}>{plan.health}</Badge><Badge tone={toneFor(plan.priority)}>{plan.priority} priority</Badge></div></div><div className="work-plan-actions">{source && <Button variant="secondary" onClick={() => openSourceAction(source.id)}>Open source goal</Button>}<Button variant="secondary" onClick={addTask}>Add task</Button><Button variant="secondary" onClick={requestDecision}>Request decision</Button><Button onClick={close}>Close project</Button></div></div>
-    <div className="progress-strip"><div><span>Progress</span><b>{plan.progress}%</b><i><em style={{ width: `${plan.progress}%` }} /></i></div><div><span>Initiative owner</span><b>{plan.owner}</b></div><div><span>Owning department</span><b>{plan.department}</b></div><div><span>Target completion</span><b>{plan.due}</b></div><div><span>Next review</span><b>{plan.nextReview}</b></div></div>
-    <div className="action-tabs work-plan-tabs">{["Overview", "Tasks", "Outcomes & KPIs", "Risks & Decisions", "Activity"].map((item) => <button className={tab === item ? "active" : ""} onClick={() => setTab(item)} key={item}>{item}</button>)}</div>
+    <div className="work-plan-header"><div><p className="eyebrow">{plan.id} · {plan.template}</p><h1>{plan.name}</h1><div className="badge-row"><Badge tone={toneFor(plan.status)}>{plan.status}</Badge><Badge tone={toneFor(plan.health)}>{plan.health}</Badge><Badge tone={toneFor(plan.priority)}>{plan.priority} priority</Badge></div></div><div className="work-plan-actions">{source && <Button variant="secondary" onClick={() => openSourceAction(source.id)}>Open source goal</Button>}<Button variant="secondary" onClick={addTask}>Add task</Button><Button onClick={close}>Close project</Button></div></div>
+    <div className="progress-strip"><div><span>Progress</span><b>{plan.progress}%</b><i><em style={{ width: `${plan.progress}%` }} /></i></div><div><span>Project owner</span><b>{plan.owner}</b></div><div><span>Owning department</span><b>{plan.department}</b></div><div><span>Target completion</span><b>{plan.due}</b></div></div>
+    <div className="action-tabs work-plan-tabs">{["Overview", "Tasks", "Outcomes", "Risks & Blockers"].map((item) => <button className={tab === item ? "active" : ""} onClick={() => setTab(item)} key={item}>{item}</button>)}</div>
     {taskFormOpen && <TaskForm plan={plan} initial={editingTask} onClose={() => setTaskFormOpen(false)} onSave={saveTask} />}
     {taskNotice && <p className="task-success" role="status">{taskNotice}</p>}
-    {tab === "Overview" && <WorkPlanOverview plan={plan} />}
-    {tab === "Tasks" && <><section className="table-card work-plan-task-table"><div className="card-head padded"><div><h2>Tasks</h2><p>Dependencies remain visible until prerequisites are complete.</p></div><Button onClick={addTask}>Add task</Button></div><div className="table-wrap"><PaginatedTable><thead><tr><th>Task</th><th>Owner</th><th>Department</th><th>Due</th><th>Dependency</th><th>Status</th><th>Actions</th></tr></thead><tbody>{plan.tasks.map((task) => <tr key={task.id}><td><b>{task.name}</b><small>{task.id}</small>{taskNotes(task).length > 0 && <details className="task-note-summary"><summary>{taskNotes(task).length} {taskNotes(task).length === 1 ? "note" : "notes"}</summary>{taskNotes(task).map(note => <div key={note.id}><strong>{note.type}</strong><p>{note.text}</p></div>)}</details>}</td><td><Select ariaLabel={`Owner for ${task.name}`} value={task.owner} onChange={(owner) => updateTask(task.id, { owner })}>{[...new Set(["Unassigned", plan.owner, task.owner, "Maya Ortiz", "Jordan Lee", "Priya Shah", "Evan Brooks"])].map(owner => <option key={owner}>{owner}</option>)}</Select></td><td>{task.department}</td><td>{task.due}</td><td>{plan.tasks.find(item => item.id === task.dependency)?.name || task.dependency || "None"}</td><td><Select value={task.status} onChange={(status) => updateTask(task.id, { status: status as WorkTask["status"] })}>{["Not Started", "In Progress", "Blocked", "Awaiting Review", "Completed", "Cancelled"].map((item) => <option key={item}>{item}</option>)}</Select></td><td><button className="btn btn-ghost" aria-label={`Edit ${task.name}`} onClick={() => { setEditingTask(task); setTaskNotice(""); setTaskFormOpen(true); }}>Edit</button></td></tr>)}</tbody></PaginatedTable></div></section></>}
-    {tab === "Outcomes & KPIs" && <OutcomeMeasurements plan={plan} measurements={measurements} save={save} />}
-    {tab === "Risks & Decisions" && <WorkPlanRisks plan={plan} onAdd={() => addIssue()} onEdit={risk => setRiskDraft({ ...risk, type: riskType(risk) })} onResolve={risk => save({ risks: plan.risks.map(item => item.id === risk.id ? { ...item, status: "Resolved" } : item) }, `Issue resolved: ${risk.issue}`)} />}
-    {riskDraft && <RiskForm initial={riskDraft} onClose={() => setRiskDraft(null)} onSave={saveRisk} />}    {tab === "Activity" && <section className="card activity-card"><div className="card-head"><div><h2>Activity and history</h2><p>Simulated prototype history</p></div></div><div className="activity-feed">{plan.activity.map((item, index) => <div key={`${item.date}-${index}`}><i /><span><b>{item.text}</b><small>{item.date} · {item.by}</small></span></div>)}</div></section>}
+    {tab === "Overview" && <WorkPlanOverview plan={plan} onSave={changes => onSaveOverview({ ...plan, ...changes, lastUpdated: new Date().toISOString().slice(0, 10), activity: [{ date: new Date().toISOString().slice(0, 10), text: "Accountability and timeline updated", by: changes.owner }, ...plan.activity] })} />}
+    {tab === "Tasks" && <><section className="table-card work-plan-task-table"><div className="card-head padded"><div><h2>Tasks</h2><p>Dependencies remain visible until prerequisites are complete.</p></div><Button onClick={addTask}>Add task</Button></div><div className="table-wrap"><PaginatedTable><thead><tr><th>Task</th><th>Owner</th><th>Department</th><th>Due</th><th>Dependency</th><th>Status</th><th>Actions</th></tr></thead><tbody>{plan.tasks.map((task) => <tr key={task.id}><td><b>{task.name}</b><small>{task.id}</small>{taskNotes(task).length > 0 && <details className="task-note-summary"><summary>{taskNotes(task).length} {taskNotes(task).length === 1 ? "note" : "notes"}</summary>{taskNotes(task).map(note => <div key={note.id}><strong>{note.type === "Decision" ? "General" : note.type}</strong><p>{note.text}</p></div>)}</details>}</td><td>{task.owner}</td><td>{task.department}</td><td>{task.due}</td><td>{plan.tasks.find(item => item.id === task.dependency)?.name || task.dependency || "None"}</td><td><Badge tone={toneFor(task.status)}>{task.status}</Badge></td><td><button className="btn btn-ghost" aria-label={`Edit ${task.name}`} onClick={() => { setEditingTask(task); setTaskNotice(""); setTaskFormOpen(true); }}>Edit</button></td></tr>)}</tbody></PaginatedTable></div></section></>}
+    {tab === "Outcomes" && <OutcomeMeasurements plan={plan} measurements={measurements} save={save} />}
+    {tab === "Risks & Blockers" && <WorkPlanRisks plan={plan} onAdd={() => addIssue()} onEdit={risk => setRiskDraft({ ...risk, type: riskType(risk) })} onResolve={risk => save({ risks: plan.risks.map(item => item.id === risk.id ? { ...item, status: "Resolved" } : item) }, `Issue resolved: ${risk.issue}`)} />}
+    {riskDraft && <RiskForm initial={riskDraft} onClose={() => setRiskDraft(null)} onSave={saveRisk} />}
   </>;
 }
 

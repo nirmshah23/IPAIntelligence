@@ -4,19 +4,18 @@ import { useEffect, useState } from 'react';
 import Intelligence, { type Page as IntelligencePage } from './modules/intelligence/App';
 import Assurance, { type Page as AssurancePage } from './modules/assurance/App';
 
-type Module = 'intelligence' | 'relations' | 'assurance' | 'reports';
+type Module = 'workflows' | 'intelligence' | 'relations' | 'assurance' | 'reports';
 type Navigation = { planId?: string; filter?: string };
 const intelligencePages: [IntelligencePage, string][] = [
-  ['dashboard', 'Membership workflow'],
   ['providers', 'Provider directory'], ['enrollments', 'Enrollments'], ['disenrollments', 'Disenrollments'],
   ['compliance', 'Preventive compliance'],
   ['adequacy', 'Network adequacy'],
   ['referrals', 'OON referrals'], ['facilities', 'Facilities'],
   ['actions', 'Goal center'],
 ];
-const relationsPages: [IntelligencePage, string][] = [['relations', 'Relations workflow'], ['workplans', 'Projects'], ['project-templates', 'Project templates'], ['measurements', 'Measurement setup']];
+const relationsPages: [IntelligencePage, string][] = [['workplans', 'Projects'], ['project-templates', 'Project templates'], ['measurements', 'Measurement setup']];
 const assurancePages: [AssurancePage, string][] = [
-  ['overview', 'Compliance workflow'], ['queue', 'Obligations'],
+  ['queue', 'Obligations'],
   ['exceptions', 'Exceptions & escalations'],
   ['calendar', 'Compliance calendar'], ['editor', 'Definition editor'],
 ];
@@ -25,8 +24,9 @@ const reportsPages = [['membership', 'Membership'], ['providers', 'Providers'], 
 function initialRoute() {
   if (typeof window === 'undefined') {
     return {
-      module: 'intelligence' as Module,
-      reports: 'providers' as ReportsPage,
+      module: 'workflows' as Module,
+      workflows: 'dashboard' as const,
+    reports: 'providers' as ReportsPage,
       navigation: {} as Navigation,
       relations: 'relations' as IntelligencePage,
       intelligence: 'dashboard' as IntelligencePage,
@@ -38,8 +38,11 @@ function initialRoute() {
   const params = new URLSearchParams(query);
   const isRelations = module === 'relations' || (module === 'intelligence' && ['relations', 'workplans', 'project-templates', 'measurements'].includes(page));
   const isReports = module === 'reports' || (module === 'intelligence' && page === 'analytics') || (module === 'assurance' && page === 'reports');
+  const isWorkflow = !module || module === 'workflows' || (module === 'intelligence' && ['dashboard', 'relations'].includes(page)) || (module === 'relations' && (!page || page === 'relations')) || (module === 'assurance' && (!page || page === 'overview'));
+  const known = isReports || isRelations || module === 'assurance' || (module === 'intelligence' && (page === 'dofr' || intelligencePages.some(([id]) => id === page)));
   return {
-    module: (isReports ? 'reports' : isRelations ? 'relations' : module === 'assurance' ? 'assurance' : 'intelligence') as Module,
+    workflows: 'dashboard' as const,
+    module: (isWorkflow || !known ? 'workflows' : isReports ? 'reports' : isRelations ? 'relations' : module === 'assurance' ? 'assurance' : 'intelligence') as Module,
     reports: (page === 'reports' || page === 'compliance' ? 'compliance' : page === 'membership' ? 'membership' : 'providers') as ReportsPage,
     navigation: { planId: params.get('plan') || undefined, filter: params.get('filter') || undefined } as Navigation,
     relations: (page === 'measurements' ? 'measurements' : page === 'project-templates' ? 'project-templates' : page === 'workplans' ? 'workplans' : 'relations') as IntelligencePage,
@@ -49,15 +52,18 @@ function initialRoute() {
 }
 export default function App() {
   const [route, setRoute] = useState(() => ({
-    module: 'intelligence' as Module,
+    module: 'workflows' as Module,
+    workflows: 'dashboard' as const,
     reports: 'providers' as ReportsPage,
     navigation: {} as Navigation,
     relations: 'relations' as IntelligencePage,
     intelligence: 'dashboard' as IntelligencePage,
     assurance: 'overview' as AssurancePage,
   }));
+  const [goalTarget, setGoalTarget] = useState<HTMLDivElement | null>(null);
+  const [complianceTarget, setComplianceTarget] = useState<HTMLDivElement | null>(null);
   const [navigationOpen, setNavigationOpen] = useState(false);
-  const [expanded, setExpanded] = useState<Record<Module, boolean>>({ intelligence: true, relations: true, assurance: true, reports: true });
+  const [expanded, setExpanded] = useState<Record<Module, boolean>>({ workflows: true, intelligence: true, relations: true, assurance: true, reports: true });
   useEffect(() => {
     const restoreRoute = () => {
       const next = initialRoute();
@@ -88,6 +94,7 @@ export default function App() {
     <aside id="workspace-navigation" className={`workspace-navigation ${navigationOpen ? 'is-open' : ''}`}>
       <div className="workspace-brand"><span>AW</span><div><strong>Arcwell IPA</strong><small>IPA Workspace</small></div></div>
       <nav aria-label="Workspace navigation">
+        <button aria-current={route.module === "workflows" ? "page" : undefined} onClick={() => navigate("workflows", "dashboard")}>Workflows</button>
         {([
           ['intelligence', 'Membership Management', intelligencePages],
           ['relations', 'Provider Relations', relationsPages],
@@ -106,8 +113,13 @@ export default function App() {
     </aside>
     {navigationOpen && <button className="workspace-overlay" aria-label="Close navigation" onClick={() => setNavigationOpen(false)} />}
     <div id="workspace-content" className="workspace-content" tabIndex={-1}>
-      <section className="intelligence-module" aria-label={route.module === "reports" ? "Reports & Analytics" : route.module === "relations" ? "Provider Relations" : "Membership Management"} hidden={route.module === 'assurance' || (route.module === 'reports' && route.reports === 'compliance')}><Intelligence analyticsView={route.reports === "membership" ? "membership" : "providers"} page={route.module === "reports" ? 'analytics' : route.module === "relations" ? route.relations : route.intelligence} navigation={route.navigation} setPage={(page, navigation) => navigate(page === 'analytics' ? 'reports' : page === "relations" || page === "workplans" || page === "measurements" || page === "project-templates" ? "relations" : "intelligence", page, navigation)} /></section>
-      <section className="assurance-module" aria-label={route.module === 'reports' ? 'Reports & Analytics' : 'Operational Compliance'} hidden={route.module !== 'assurance' && !(route.module === 'reports' && route.reports === 'compliance')}><Assurance page={route.module === 'reports' ? 'reports' : route.assurance} setPage={page => navigate(page === 'reports' ? 'reports' : 'assurance', page)} /></section>
+      <div hidden={route.module !== 'workflows'} className="px-4 py-8 md:px-8">
+        <header className="mb-8"><p className="text-xs font-bold uppercase tracking-widest text-teal-700">Workspace overview</p><h1 className="mt-2 text-3xl font-bold text-slate-900">Workflows</h1><p className="mt-2 text-sm text-slate-600">Membership goals, provider relations tasks, and compliance obligations in one place.</p><p className="mt-2 text-xs text-slate-500">Fictional demo data. Saved in this browser only. Data is specific to this browser and site address and is removed when site data is cleared.</p></header>
+        <div className="intelligence-module" ref={setGoalTarget} />
+        <div className="assurance-module mt-10!" ref={setComplianceTarget} />
+      </div>
+      <section className="intelligence-module" aria-label={route.module === "reports" ? "Reports & Analytics" : route.module === "relations" ? "Provider Relations" : "Membership Management"} hidden={route.module === 'workflows' || route.module === 'assurance' || (route.module === 'reports' && route.reports === 'compliance')}><Intelligence dashboardTarget={goalTarget} analyticsView={route.reports === "membership" ? "membership" : "providers"} page={route.module === "reports" ? 'analytics' : route.module === "relations" ? route.relations : route.intelligence} navigation={route.navigation} setPage={(page, navigation) => navigate(page === 'analytics' ? 'reports' : page === "relations" || page === "workplans" || page === "measurements" || page === "project-templates" ? "relations" : "intelligence", page, navigation)} /></section>
+      <section className="assurance-module" aria-label={route.module === 'reports' ? 'Reports & Analytics' : 'Operational Compliance'} hidden={route.module !== 'assurance' && !(route.module === 'reports' && route.reports === 'compliance')}><Assurance dashboardTarget={complianceTarget} page={route.module === 'reports' ? 'reports' : route.assurance} setPage={page => navigate(page === 'reports' ? 'reports' : 'assurance', page)} /></section>
     </div>
   </div>;
 }

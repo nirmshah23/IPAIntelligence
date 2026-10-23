@@ -1,3 +1,5 @@
+import { createPortal } from "react-dom";
+import { DashboardTabs } from "../../components/DashboardTabs";
 import { readAssuranceStorage } from "./storage";
 import { WorkflowDetail } from "./WorkflowDetail";
 import { initializeWorkflow, workflowDefinitions } from "./workflows";
@@ -60,7 +62,7 @@ function Section({title,sub,action,children}:{title:string,sub?:string,action?:R
   return <section className="card"><div className="card-head"><div><h2>{title}</h2>{sub&&<p>{sub}</p>}</div>{action}</div>{children}</section>;
 }
 
-export default function App({ page, setPage }: { page: Page; setPage: (page: Page) => void }) {
+export default function App({ page, setPage, dashboardTarget }: { dashboardTarget?: HTMLElement | null; page: Page; setPage: (page: Page) => void }) {
   const [items,setItems] = useState<Item[]>(() => {
     const initialItems = seed.map(item => item.category === "Credentialing" ? {
       ...item, execution: "In progress", verification: "Pending",
@@ -181,7 +183,7 @@ export default function App({ page, setPage }: { page: Page; setPage: (page: Pag
   const current=items.find(i=>i.id===selected)!;
   const pageTitle:Record<Page,string>={overview:"Compliance workflow",queue:"Obligations",detail:current?.title||"Occurrence detail",exceptions:"Exceptions & escalations",calendar:"Compliance calendar",editor:"Obligation definition editor",reports:"Compliance"};
 
-  return <div className="app">
+  return <>{dashboardTarget && createPortal(<section className="workflow-page" aria-label="Compliance workflow">{toast && <p role="status" className="mb-4 rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{toast}</p>}<Overview items={items} go={(p,f)=>{setPage(p);setFilter(f||"Open")}}/></section>, dashboardTarget)}<div className="app">
     <aside>
       <div className="brand"><div className="brandmark">OA</div><div><strong>Operational<br/>Assurance</strong><small>Redwood Valley IPA</small></div></div>
       <nav>{nav.map(([key,label,icon])=><button key={key} className={page===key?"active":""} onClick={()=>setPage(key as Page)}><Icon name={icon}/><span>{label}</span>{key==="exceptions"&&<b>3</b>}</button>)}</nav>
@@ -203,7 +205,7 @@ export default function App({ page, setPage }: { page: Page; setPage: (page: Pag
         </div>
       </div>
     </main>
-  </div>
+  </div></>
 }
 
 function PageHead({eyebrow,title,sub,action}:{eyebrow?:string,title:string,sub:string,action?:React.ReactNode}) {
@@ -217,15 +219,15 @@ function ObligationGrids({items}:{items:Item[]}) {
   const deadlines = ["Upcoming", "On track", "At risk", "Overdue", ...new Set(items.map(item=>item.deadline).filter(value=>!["Upcoming", "On track", "At risk", "Overdue"].includes(value)))];
   const summary = (title:string, field:"category" | "risk" | "owner", rows:string[]) => <Section title={title} sub={`${items.length} obligations total`}><div className="table-wrap"><table aria-label={title}><thead><tr><th scope="col">{field === "category" ? "Category" : field === "risk" ? "Risk" : "Owner"}</th><th scope="col">Obligations</th></tr></thead><tbody>{rows.map(value=><tr key={value}><th scope="row">{value}</th><td>{items.filter(item=>item[field]===value).length}</td></tr>)}</tbody><tfoot><tr><th scope="row">Total</th><td>{items.length}</td></tr></tfoot></table></div></Section>;
   const matrix = (title:string, field:"execution" | "deadline", columns:string[]) => <Section title={title} sub={field==="deadline" ? "Obligation counts by current deadline status" : "Obligation counts by current execution status"}><div className="table-wrap"><table aria-label={title}><thead><tr><th scope="col">Owner</th>{columns.map(value=><th scope="col" key={value}>{value}</th>)}<th scope="col">Total</th></tr></thead><tbody>{values("owner").map(owner=><tr key={owner}><th scope="row">{owner}</th>{columns.map(value=><td key={value}>{items.filter(item=>item.owner===owner && item[field]===value).length}</td>)}<td>{items.filter(item=>item.owner===owner).length}</td></tr>)}</tbody><tfoot><tr><th scope="row">Total</th>{columns.map(value=><td key={value}>{items.filter(item=>item[field]===value).length}</td>)}<td>{items.length}</td></tr></tfoot></table></div></Section>;
-  return <div className="obligation-grids">
+  return <DashboardTabs label="Compliance dashboards"><div title="By owner and status" className="obligation-grids [&_.card]:bg-white!">
     {matrix("Obligations by Owner and execution status", "execution", executions)}
-    {matrix("Obligations by Owner and timeliness", "deadline", deadlines)}
-    <div className="obligation-summary-grids">{summary("Obligations by Category", "category", values("category"))}{summary("Obligations by Risk", "risk", risks)}{summary("Obligations by Owner", "owner", values("owner"))}</div>
-  </div>;
+    </div><div title="By owner and timeliness" className="obligation-grids [&_.card]:bg-white!">{matrix("Obligations by Owner and timeliness", "deadline", deadlines)}</div><div title="By category" className="obligation-grids [&_.card]:bg-white!">
+    {summary("Obligations by Category", "category", values("category"))}</div><div title="By risk" className="obligation-grids [&_.card]:bg-white!">{summary("Obligations by Risk", "risk", risks)}</div><div title="By owner" className="obligation-grids [&_.card]:bg-white!">{summary("Obligations by Owner", "owner", values("owner"))}</div>
+  </DashboardTabs>;
 }
 
 function Overview({items,go}:{items:Item[],go:(p:Page,f?:string)=>void}) {
-  return <div className="workflow-page"><PageHead eyebrow="Operational compliance" title="Compliance workflow" sub={`Counts across ${items.length} obligations.`} action={<Button onClick={()=>go("queue")}>Review obligations</Button>}/>
+  return <div className="workflow-page"><div className="mb-5 flex flex-wrap items-center justify-between gap-4"><div><h2 className="text-2xl font-bold">Compliance workflow</h2><p className="mt-2 text-sm text-slate-500">Counts across {items.length} obligations.</p></div><Button onClick={()=>go("queue")}>Review obligations</Button></div>
     <ObligationGrids items={items}/>
   </div>;
 }
