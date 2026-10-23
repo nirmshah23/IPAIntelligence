@@ -17,30 +17,26 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
     "paths": {
       "@/*": [
         "./src/*"
-      ],
-      "@payload-config": [
-        "./src/payload.config.ts"
       ]
     },
-    "target": "ES2022"
+    "target": "ES2022",
+    "types": [
+      "vite/client",
+      "node"
+    ]
   },
   "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "vite.config.ts",
+    "playwright.config.ts",
+    "tests/**/*.ts"
   ],
   "exclude": [
     "node_modules",
-    "vite.config.*"
+    "dist"
   ]
 }

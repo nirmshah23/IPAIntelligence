@@ -102,7 +102,7 @@ export default function App() {
           </div>
         </div>)}
       </nav>
-      <div className="workspace-note">Demo workspace · Fictional data</div>
+      <div className="workspace-note">Prototype ? Fictional data ? Saved in this browser</div>
     </aside>
     {navigationOpen && <button className="workspace-overlay" aria-label="Close navigation" onClick={() => setNavigationOpen(false)} />}
     <div id="workspace-content" className="workspace-content" tabIndex={-1}>

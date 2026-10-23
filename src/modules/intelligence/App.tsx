@@ -12,7 +12,7 @@ import { WorkPlanOverview } from "./WorkPlanOverview";
 import { MeasurementSetup, OutcomeMeasurements, useMeasurements, type Measurement } from "./measurements";
 import { PaginatedTable } from "../../components/PaginatedResults";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { listProjectTemplates, saveProjectTemplate, type ProjectTemplateRecord } from "@/app/(frontend)/project-template-actions";
+import { listProjectTemplates, saveProjectTemplate, type ProjectTemplateRecord } from "@/lib/project-templates";
 
 import type { PageNavigation, Page, ProviderFilterPreset, ComplianceFilterPreset, AdequacyFilterPreset, ReferralFilterPreset, ProviderPeriodData, DetailValue, ProviderDetails, Provider, Action, WorkTask, WorkKpi, WorkRisk, WorkPlan } from './types';
 export type { Page } from './types';
@@ -324,6 +324,7 @@ export default function App({ page, setPage, navigation = {}, analyticsView = "p
   const [setupSource, setSetupSource] = useState<string | "direct" | null>(null);
   const [projectTemplates, setProjectTemplates] = useState<ProjectTemplateRecord[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [templatesLoadError, setTemplatesLoadError] = useState("");
 
   useEffect(() => localStorage.setItem("ipa-providers", JSON.stringify(providers)), [providers]);
   // Reconcile saved demo links with the current provider roster, including after hot reload.
@@ -336,8 +337,9 @@ export default function App({ page, setPage, navigation = {}, analyticsView = "p
   const refreshProjectTemplates = async () => {
     try {
       setProjectTemplates(await listProjectTemplates());
-    } catch {
-      setToast("Project templates could not be loaded.");
+      setTemplatesLoadError("");
+    } catch (error) {
+      setTemplatesLoadError(error instanceof Error && !(error instanceof SyntaxError) ? error.message : "Saved project templates could not be read. Existing browser data has been preserved. Check browser storage, then reload.");
     } finally {
       setTemplatesLoading(false);
     }
@@ -417,7 +419,7 @@ export default function App({ page, setPage, navigation = {}, analyticsView = "p
           {page !== "relations" && page !== "workplans" && page !== "measurements" && <label className="period period-picker"><span>Reporting period</span><select value={reportingPeriod} onChange={(event) => setReportingPeriod(event.target.value)}>{reportingPeriods.map((period) => <option value={period.id} key={period.id}>{period.label}</option>)}</select></label>}
           <div className="top-actions"><button className="icon-btn" title="Help" onClick={() => window.alert("This prototype uses fictional healthcare data. Select a module from the sidebar to explore its workflow.")}>?</button><div className="profile"><span>MO</span><div><b>Maya Ortiz</b><small>Network Administrator</small></div></div></div>
         </header>
-        <main><ActionHistoryContext.Provider value={actions}>
+        <main>{templatesLoadError && <p className="mb-4 rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">{templatesLoadError}</p>}<ActionHistoryContext.Provider value={actions}>
           {page === "disenrollments" && <Disenrollments providers={providers} period={reportingPeriod} addAction={(subject, reason, priority, context) => addAction("Disenrollments", subject, reason, priority, context)} />}
           {page === "enrollments" && <Enrollments providers={providers} period={reportingPeriod} addAction={(subject, reason, priority, context) => addAction("Enrollments", subject, reason, priority, context)} />}
           {page === "dashboard" && <Dashboard actions={actions} onOpenActions={(filter) => setPage("actions", { filter })} />}
@@ -881,7 +883,7 @@ function ProjectTemplateSetup({ templates, setTemplates, loading }: { templates:
     });
   };
   return <>
-    <PageHeader eyebrow="Provider relations" title="Project templates" description="Create reusable task templates for new projects." action={<Button onClick={() => edit()}>Create template</Button>} />
+    <PageHeader eyebrow="Provider relations" title="Project templates" description="Create reusable task templates for new projects. Saved in this browser; clearing browser data removes saved templates." action={<Button onClick={() => edit()}>Create template</Button>} />
     <section className="table-card"><div className="table-wrap"><PaginatedTable><thead><tr><th>Template</th><th>Description</th><th>Tasks</th><th>Status</th><th>Action</th></tr></thead><tbody>{templates.map(template => <tr key={template.id}><td><b>{template.name}</b><small>{template.id}</small></td><td>{template.description || "No description"}</td><td>{template.tasks.length}</td><td><Badge tone={template.active ? "good" : "neutral"}>{template.active ? "Active" : "Inactive"}</Badge></td><td><Button variant="ghost" onClick={() => edit(template)}>Edit</Button></td></tr>)}</tbody></PaginatedTable></div>{!templates.length && <Empty title={loading ? "Loading templates" : "No project templates"} message={loading ? "Project templates are loading." : "Create a template to make it available during project setup."} />}</section>
     {draft && <div className="modal-backdrop"><div className="modal"><div className="modal-head"><div><p className="eyebrow">Provider relations</p><h2>{draft.id ? "Edit project template" : "Create project template"}</h2></div><button className="close" aria-label="Close" onClick={() => setDraft(null)}>×</button></div><div className="form-grid">
       <TextInput label="Template name" value={draft.name} onChange={name => setDraft({ ...draft, name })} required />
